@@ -1,6 +1,6 @@
-export default class WalletAccountEvmErc4337 {
+export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
     /**
-     * Creates a new evm Erc4337 wallet account.
+     * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account.
      *
      * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
      * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0").
@@ -8,40 +8,29 @@ export default class WalletAccountEvmErc4337 {
      */
     constructor(seed: string | Uint8Array, path: string, config?: EvmErc4337WalletConfig);
     /**
-     * The configuration object.
+     * The evm erc-4337 wallet account configuration.
      *
      * @protected
      * @type {EvmErc4337WalletConfig}
      */
     protected _config: EvmErc4337WalletConfig;
-    /**
-     * The Safe4337Pack instance used to interact with the Safe 4337 protocol.
-     *
-     * @private
-     * @type {Safe4337Pack | null}
-     */
+    /** @private */
     private _safe4337Pack;
-    /**
-     * The fee estimator for the safe 4337 pack.
-     *
-     * @private
-     * @type {GenericFeeEstimator}
-     */
+    /** @private */
     private _feeEstimator;
     /**
-     * Returns the balance of the account for the configured paymaster token.
+     * Returns the account's balance for the paymaster token defined in the wallet account configuration.
      *
-     * @returns {Promise<number>} The token balance (in base unit).
+     * @returns {Promise<number>} The paymaster token balance (in base unit).
      */
     getPaymasterTokenBalance(): Promise<number>;
-    getAddress(): Promise<any>;
     /**
-      * Sends a transaction.
-      *
-      * @param {EvmTransaction} tx -  The transaction.
-      * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
-      * @returns {Promise<TransactionResult>} The transaction's hash and fee.
-      */
+     * Sends a transaction.
+     *
+     * @param {EvmTransaction} tx -  The transaction.
+     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+     * @returns {Promise<TransactionResult>} The transaction's result.
+     */
     sendTransaction(tx: EvmTransaction, config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<TransactionResult>;
     /**
      * Quotes the costs of a send transaction operation.
@@ -61,50 +50,22 @@ export default class WalletAccountEvmErc4337 {
      */
     transfer(options: TransferOptions, config?: Pick<EvmErc4337WalletConfig, "paymasterToken" | "transferMaxFee">): Promise<TransferResult>;
     /**
-     * Quotes the costs of a transfer operation in paymaster token.
+     * Quotes the costs of a transfer operation.
      *
      * @see {transfer}
      * @param {TransferOptions} options - The transfer's options.
-     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} config -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
+     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
      */
-    quoteTransfer(options: TransferOptions, config: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<Omit<TransferResult, "hash">>;
-    /**
-     * Initializes and returns the Safe4337Pack instance.
-     *
-     * @returns {Promise<Safe4337Pack>}
-     * @private
-     */
+    quoteTransfer(options: TransferOptions, config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<Omit<TransferResult, "hash">>;
+    /** @private */
     private _getSafe4337Pack;
-    /**
-     * Calculates the gas cost of a gasless transaction in the paymaster token.
-     *
-     * @param {EvmTransaction} tx - The transaction to be executed.
-     * @param {Object} paymasterToken - The paymaster token configuration.
-     * @returns {Promise<number>} The gas cost in the paymaster token.
-     * @private
-     */
-    private _getGasCostInPaymasterToken;
-    /**
-     * Calculates the gas cost of a gasless transaction in native token.
-     *
-     * @param {EvmTransaction} tx - The transaction to be executed.
-     * @param {Object} paymasterToken - The paymaster token configuration.
-     * @returns {Promise<number>} The gas cost in native token.
-     * @private
-     */
-    private _getGaslessTransactionGasCostInEth;
-    /**
-     * Sends a gasless transaction using Safe4337Pack.
-     *
-     * @private
-     * @param {EvmTransaction} tx - The transaction to be executed.
-     * @param {number} fee - The transaction fee.
-     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
-     * @returns {Promise<string>} The transaction's hash.
-     */
-    private _sendGaslessTransaction;
+    /** @private */
+    private _sendUserOperation;
+    /** @private */
+    private _getUserOperationGasCost;
 }
+export type Eip1193Provider = import("ethers").Eip1193Provider;
 export type KeyPair = import("@wdk/wallet-evm").KeyPair;
 export type EvmTransaction = import("@wdk/wallet-evm").EvmTransaction;
 export type TransactionResult = import("@wdk/wallet-evm").TransactionResult;
@@ -118,7 +79,7 @@ export type EvmErc4337WalletConfig = {
     /**
      * - The url of the rpc provider, or an instance of a class that implements eip-1193.
      */
-    provider?: string | Eip1193Provider;
+    provider: string | Eip1193Provider;
     /**
      * - The url of the bundler service.
      */
@@ -150,3 +111,4 @@ export type EvmErc4337WalletConfig = {
      */
     transferMaxFee?: number;
 };
+import { WalletAccountEvm } from "@wdk/wallet-evm";

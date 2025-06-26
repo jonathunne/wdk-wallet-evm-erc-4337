@@ -22,7 +22,7 @@ import WalletAccountEvmErc4337 from './wallet-account-evm-erc-4337.js'
 
 export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
   /**
-   * Creates a new wallet manager that implements the ERC-4337 standard and its account abstraction features for EVM blockchains.
+   * Creates a new wallet manager for evm blockchains that implements the [erc-4337](https://www.erc4337.io/docs) standard and its account abstraction features.
    *
    * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
    * @param {EvmErc4337WalletConfig} [config] - The configuration object.
