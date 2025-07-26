@@ -131,14 +131,14 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
   /**
    * Quotes the costs of a send transaction operation.
    *
-   * @param {EvmTransaction} tx - The transaction.
+   * @param {EvmTransaction | EvmTransaction[]} tx - The transaction, or an array of multiple transactions to send in batch.
    * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
    */
   async quoteSendTransaction (tx, config) {
     const { paymasterToken } = config ?? this._config
 
-    const fee = await this._getUserOperationGasCost(tx, {
+    const fee = await this._getUserOperationGasCost([tx].flat(), {
       paymasterTokenAddress: paymasterToken.address,
       amountToApprove: BigInt(Number.MAX_SAFE_INTEGER)
     })
@@ -223,12 +223,16 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
   }
 
   /** @private */
-  async _getUserOperationGasCost (tx, options) {
+  async _getUserOperationGasCost (txs, options) {
     const safe4337Pack = await this._getSafe4337Pack()
+
+    const from = await this.getAddress()
+
+    const transactions = txs.map((tx) => ({ from, ...tx }))
 
     try {
       const safeOperation = await safe4337Pack.createTransaction({
-        transactions: [{ from: await this.getAddress(), ...tx }],
+        transactions,
         options: {
           feeEstimator: this._feeEstimator,
           ...options

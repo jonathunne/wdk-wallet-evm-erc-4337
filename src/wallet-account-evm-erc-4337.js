@@ -114,7 +114,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   /**
    * Sends a transaction.
    *
-   * @param {EvmTransaction} tx -  The transaction.
+   * @param {EvmTransaction | EvmTransaction[]} tx -  The transaction, or an array of multiple transactions to send in batch.
    * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
    * @returns {Promise<TransactionResult>} The transaction's result.
    */
@@ -123,7 +123,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
     const { fee } = await this.quoteSendTransaction(tx, config)
 
-    const hash = await this._sendUserOperation(tx, {
+    const hash = await this._sendUserOperation([tx].flat(), {
       paymasterTokenAddress: paymasterToken.address,
       amountToApprove: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
     })
@@ -149,7 +149,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 
-    const hash = await this._sendUserOperation(tx, {
+    const hash = await this._sendUserOperation([tx], {
       paymasterTokenAddress: paymasterToken.address,
       amountToApprove: BigInt(Math.ceil(fee * FEE_TOLERANCE_COEFFICIENT))
     })
@@ -207,14 +207,18 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   }
 
   /** @private */
-  async _sendUserOperation (tx, options) {
+  async _sendUserOperation (txs, options) {
     const safe4337Pack = await this._getSafe4337Pack()
 
     const twoMinutesFromNow = Math.floor(Date.now() / 1_000) + 2 * 60
 
+    const from = await this.getAddress()
+
+    const transactions = txs.map((tx) => ({ from, ...tx }))
+
     try {
       const safeOperation = await safe4337Pack.createTransaction({
-        transactions: [{ from: await this.getAddress(), ...tx }],
+        transactions,
         options: {
           validUntil: twoMinutesFromNow,
           feeEstimator: this._feeEstimator,
