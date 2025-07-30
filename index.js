@@ -15,6 +15,7 @@
 'use strict'
 
 /** @typedef {import('@wdk/wallet-evm').FeeRates} FeeRates */
+
 /** @typedef {import('@wdk/wallet-evm').KeyPair} KeyPair */
 /** @typedef {import('@wdk/wallet-evm').EvmTransaction} EvmTransaction */
 /** @typedef {import('@wdk/wallet-evm').TransactionResult} TransactionResult */
@@ -25,5 +26,7 @@
 /** @typedef {import('./src/wallet-manager-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 
 export { default } from './src/wallet-manager-evm-erc-4337.js'
+
+export { default as WalletAccountReadOnlyEvmErc4337 } from './src/wallet-account-read-only-evm-erc-4337.js'
 
 export { default as WalletAccountEvmErc4337 } from './src/wallet-account-evm-erc-4337.js'
