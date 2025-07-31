@@ -1,3 +1,4 @@
+/** @implements {IWalletAccount} */
 export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc4337 implements IWalletAccount {
     /**
      * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account.
@@ -15,7 +16,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
      */
     protected _config: EvmErc4337WalletConfig;
     /** @private */
-    private _evmAccount;
+    private _ownerAccount;
     /**
      * The derivation path's index of this account.
      *
@@ -70,7 +71,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
      *
      * @returns {Promise<WalletAccountReadOnlyEvmErc4337>} The read-only account.
      */
-    toReadOnlyAccount(): Promise<WalletAccountReadOnlyEvmErc4337>
+    toReadOnlyAccount(): Promise<WalletAccountReadOnlyEvmErc4337>;
     /**
      * Disposes the wallet account, erasing the private key from the memory.
      */

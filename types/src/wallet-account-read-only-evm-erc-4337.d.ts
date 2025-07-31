@@ -2,10 +2,10 @@ export default class WalletAccountReadOnlyEvmErc4337 extends AbstractWalletAccou
     /**
      * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
      *
-     * @param {string | undefined} address - The safe account's address.
+     * @param {string} address - The evm account's address.
      * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
      */
-    constructor(address: string | undefined, config: Omit<EvmErc4337WalletConfig, "transferMaxFee">);
+    constructor(address: string, config: Omit<EvmErc4337WalletConfig, "transferMaxFee">);
     /**
      * The read-only evm erc-4337 wallet account configuration.
      *
@@ -27,6 +27,8 @@ export default class WalletAccountReadOnlyEvmErc4337 extends AbstractWalletAccou
      * @type {GenericFeeEstimator}
      */
     protected _feeEstimator: GenericFeeEstimator;
+    /** @private */
+    private _ownerAccountAddress;
     /**
      * Returns the account's eth balance.
      *
