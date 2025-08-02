@@ -1,4 +1,4 @@
-export default class WalletAccountReadOnlyEvmErc4337 extends AbstractWalletAccountReadOnly {
+export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOnly {
     /**
      * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
      *
@@ -129,5 +129,5 @@ export type EvmErc4337WalletConfig = {
      */
     transferMaxFee?: number;
 };
-import { AbstractWalletAccountReadOnly } from '@wdk/wallet';
+import { WalletAccountReadOnly } from '@wdk/wallet';
 import { GenericFeeEstimator, Safe4337Pack } from '@wdk-safe-global/relay-kit';
