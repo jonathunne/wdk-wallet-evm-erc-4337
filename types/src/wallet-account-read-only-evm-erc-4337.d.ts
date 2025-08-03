@@ -1,51 +1,64 @@
-export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
+export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOnly {
     /**
-     * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account.
+     * Creates a new read-only evm [erc-4337](https://www.erc4337.io/docs) wallet account.
      *
-     * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
-     * @param {string} path - The BIP-44 derivation path (e.g. "0'/0/0").
-     * @param {EvmErc4337WalletConfig} config - The configuration object.
+     * @param {string} address - The evm account's address.
+     * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The configuration object.
      */
-    constructor(seed: string | Uint8Array, path: string, config: EvmErc4337WalletConfig);
-    /** @private */
-    private _safe4337Pack;
-    /** @private */
-    private _feeEstimator;
+    constructor(address: string, config: Omit<EvmErc4337WalletConfig, "transferMaxFee">);
     /**
-     * Returns the account's balance for the paymaster token defined in the wallet account configuration.
+     * The read-only evm erc-4337 wallet account configuration.
+     *
+     * @protected
+     * @type {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>}
+     */
+    protected _config: Omit<EvmErc4337WalletConfig, "transferMaxFee">;
+    /**
+     * The safe's implementation of the erc-4337 standard.
+     *
+     * @protected
+     * @type {Safe4337Pack | undefined}
+     */
+    protected _safe4337Pack: Safe4337Pack | undefined;
+    /**
+     * The safe's fee estimator.
+     *
+     * @protected
+     * @type {GenericFeeEstimator}
+     */
+    protected _feeEstimator: GenericFeeEstimator;
+    /** @private */
+    private _ownerAccountAddress;
+    /**
+     * Returns the account's eth balance.
+     *
+     * @returns {Promise<number>} The eth balance (in weis).
+     */
+    getBalance(): Promise<number>;
+    /**
+     * Returns the account balance for a specific token.
+     *
+     * @param {string} tokenAddress - The smart contract address of the token.
+     * @returns {Promise<number>} The token balance (in base unit).
+     */
+    getTokenBalance(tokenAddress: string): Promise<number>;
+    /**
+     * Returns the account's balance for the paymaster token provided in the wallet account configuration.
      *
      * @returns {Promise<number>} The paymaster token balance (in base unit).
      */
     getPaymasterTokenBalance(): Promise<number>;
     /**
-     * Sends a transaction.
-     *
-     * @param {EvmTransaction} tx -  The transaction.
-     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
-     * @returns {Promise<TransactionResult>} The transaction's result.
-     */
-    sendTransaction(tx: EvmTransaction, config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<TransactionResult>;
-    /**
      * Quotes the costs of a send transaction operation.
      *
-     * @see {@link sendTransaction}
      * @param {EvmTransaction} tx - The transaction.
      * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
      */
     quoteSendTransaction(tx: EvmTransaction, config?: Pick<EvmErc4337WalletConfig, "paymasterToken">): Promise<Omit<TransactionResult, "hash">>;
     /**
-     * Transfers a token to another address.
-     *
-     * @param {TransferOptions} options - The transfer's options.
-     * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken' | 'transferMaxFee'>} [config] - If set, overrides the 'paymasterToken' and 'transferMaxFee' options defined in the wallet account configuration.
-     * @returns {Promise<TransferResult>} The transfer's result.
-     */
-    transfer(options: TransferOptions, config?: Pick<EvmErc4337WalletConfig, "paymasterToken" | "transferMaxFee">): Promise<TransferResult>;
-    /**
      * Quotes the costs of a transfer operation.
      *
-     * @see {@link transfer}
      * @param {TransferOptions} options - The transfer's options.
      * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
@@ -58,10 +71,15 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
      * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
      */
     getTransactionReceipt(hash: string): Promise<EvmTransactionReceipt | null>;
+    /**
+     * Returns the safe's erc-4337 pack of the account.
+     *
+     * @protected
+     * @returns {Promise<Safe4337Pack>} The safe's erc-4337 pack.
+     */
+    protected _getSafe4337Pack(): Promise<Safe4337Pack>;
     /** @private */
-    private _getSafe4337Pack;
-    /** @private */
-    private _sendUserOperation;
+    private _getEvmReadOnlyAccount;
     /** @private */
     private _getUserOperationGasCost;
 }
@@ -111,4 +129,5 @@ export type EvmErc4337WalletConfig = {
      */
     transferMaxFee?: number;
 };
-import { WalletAccountEvm } from '@wdk/wallet-evm';
+import { WalletAccountReadOnly } from '@wdk/wallet';
+import { GenericFeeEstimator, Safe4337Pack } from '@wdk-safe-global/relay-kit';

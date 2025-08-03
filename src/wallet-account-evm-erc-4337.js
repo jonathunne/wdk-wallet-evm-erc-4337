@@ -16,35 +16,29 @@
 
 import { WalletAccountEvm } from '@wdk/wallet-evm'
 
-import { Safe4337Pack, GenericFeeEstimator } from '@wdk-safe-global/relay-kit'
+import { Safe4337Pack } from '@wdk-safe-global/relay-kit'
+
+import WalletAccountReadOnlyEvmErc4337 from './wallet-account-read-only-evm-erc-4337.js'
 
 /** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
+
+/** @typedef {import('@wdk/wallet').IWalletAccount} IWalletAccount */
+
+/** @typedef {import('@wdk/wallet-evm').KeyPair} KeyPair */
 
 /** @typedef {import('@wdk/wallet-evm').EvmTransaction} EvmTransaction */
 /** @typedef {import('@wdk/wallet-evm').TransactionResult} TransactionResult */
 /** @typedef {import('@wdk/wallet-evm').TransferOptions} TransferOptions */
 /** @typedef {import('@wdk/wallet-evm').TransferResult} TransferResult */
-/** @typedef {import('@wdk/wallet-evm').EvmTransactionReceipt} EvmTransactionReceipt */
 
-/**
- * @typedef {Object} EvmErc4337WalletConfig
- * @property {number} chainId - The blockchain's id (e.g., 1 for ethereum).
- * @property {string | Eip1193Provider} provider - The url of the rpc provider, or an instance of a class that implements eip-1193.
- * @property {string} bundlerUrl - The url of the bundler service.
- * @property {string} paymasterUrl - The url of the paymaster service.
- * @property {string} paymasterAddress - The address of the paymaster smart contract.
- * @property {string} entryPointAddress - The address of the entry point smart contract.
- * @property {string} safeModulesVersion - The safe modules version.
- * @property {Object} paymasterToken - The paymaster token configuration.
- * @property {string} paymasterToken.address - The address of the paymaster token.
- * @property {number} [transferMaxFee] - The maximum fee amount for transfer operations.
- */
+/** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 
 const SALT_NONCE = '0x69b348339eea4ed93f9d11931c3b894c8f9d8c7663a053024b11cb7eb4e5a1f6'
 
 const FEE_TOLERANCE_COEFFICIENT = 1.2
 
-export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
+/** @implements {IWalletAccount} */
+export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc4337 {
   /**
    * Creates a new evm [erc-4337](https://www.erc4337.io/docs) wallet account.
    *
@@ -53,7 +47,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
    * @param {EvmErc4337WalletConfig} config - The configuration object.
    */
   constructor (seed, path, config) {
-    super(seed, path, config)
+    const ownerAccount = new WalletAccountEvm(seed, path, config)
+
+    super(ownerAccount._address, config)
 
     /**
      * The evm erc-4337 wallet account configuration.
@@ -64,32 +60,55 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
     this._config = config
 
     /** @private */
-    this._safe4337Pack = undefined
-
-    /** @private */
-    this._feeEstimator = new GenericFeeEstimator(
-      config.provider,
-      `0x${config.chainId.toString(16)}`
-    )
-  }
-
-  async getAddress () {
-    const safe4337Pack = await this._getSafe4337Pack()
-
-    const address = await safe4337Pack.protocolKit.getAddress()
-
-    return address
+    this._ownerAccount = ownerAccount
   }
 
   /**
-   * Returns the account's balance for the paymaster token defined in the wallet account configuration.
+   * The derivation path's index of this account.
    *
-   * @returns {Promise<number>} The paymaster token balance (in base unit).
+   * @type {number}
    */
-  async getPaymasterTokenBalance () {
-    const { paymasterToken } = this._config
+  get index () {
+    return this._ownerAccount.index
+  }
 
-    return await this.getTokenBalance(paymasterToken.address)
+  /**
+   * The derivation path of this account (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
+   *
+   * @type {string}
+   */
+  get path () {
+    return this._ownerAccount.path
+  }
+
+  /**
+   * The account's key pair.
+   *
+   * @type {KeyPair}
+   */
+  get keyPair () {
+    return this._ownerAccount.keyPair
+  }
+
+  /**
+   * Signs a message.
+   *
+   * @param {string} message - The message to sign.
+   * @returns {Promise<string>} The message's signature.
+   */
+  async sign (message) {
+    return await this._ownerAccount.sign(message)
+  }
+
+  /**
+   * Verifies a message's signature.
+   *
+   * @param {string} message - The original message.
+   * @param {string} signature - The signature to verify.
+   * @returns {Promise<boolean>} True if the signature is valid.
+   */
+  async verify (message, signature) {
+    return await this._ownerAccount.verify(message, signature)
   }
 
   /**
@@ -100,10 +119,6 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
    * @returns {Promise<TransactionResult>} The transaction's result.
    */
   async sendTransaction (tx, config) {
-    if (!this._account.provider) {
-      throw new Error('The wallet must be connected to a provider to send transaction.')
-    }
-
     const { paymasterToken } = config ?? this._config
 
     const { fee } = await this.quoteSendTransaction(tx, config)
@@ -117,29 +132,6 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
   }
 
   /**
-   * Quotes the costs of a send transaction operation.
-   *
-   * @see {@link sendTransaction}
-   * @param {EvmTransaction} tx - The transaction.
-   * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] - If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
-   * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
-   */
-  async quoteSendTransaction (tx, config) {
-    if (!this._account.provider) {
-      throw new Error('The wallet must be connected to a provider to quote send transaction operations.')
-    }
-
-    const { paymasterToken } = config ?? this._config
-
-    const fee = await this._getUserOperationGasCost(tx, {
-      paymasterTokenAddress: paymasterToken.address,
-      amountToApprove: BigInt(Number.MAX_SAFE_INTEGER)
-    })
-
-    return { fee }
-  }
-
-  /**
    * Transfers a token to another address.
    *
    * @param {TransferOptions} options - The transfer's options.
@@ -147,13 +139,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
    * @returns {Promise<TransferResult>} The transfer's result.
    */
   async transfer (options, config) {
-    if (!this._account.provider) {
-      throw new Error('The wallet must be connected to a provider to transfer tokens.')
-    }
-
     const { paymasterToken, transferMaxFee } = config ?? this._config
 
-    const tx = await this._getTransferTransaction(options)
+    const tx = await WalletAccountEvm._getTransferTransaction(options)
 
     const { fee } = await this.quoteSendTransaction(tx, config)
 
@@ -170,57 +158,36 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
   }
 
   /**
-   * Quotes the costs of a transfer operation.
+   * Returns a read-only copy of the account.
    *
-   * @see {@link transfer}
-   * @param {TransferOptions} options - The transfer's options.
-   * @param {Pick<EvmErc4337WalletConfig, 'paymasterToken'>} [config] -  If set, overrides the 'paymasterToken' option defined in the wallet account configuration.
-   * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
+   * @returns {Promise<WalletAccountReadOnlyEvmErc4337>} The read-only account.
    */
-  async quoteTransfer (options, config) {
-    if (!this._account.provider) {
-      throw new Error('The wallet must be connected to a provider to quote transfer operations.')
-    }
+  async toReadOnlyAccount () {
+    const address = await this._ownerAccount.getAddress()
 
-    const tx = await this._getTransferTransaction(options)
+    const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337(address, this._config)
 
-    const result = await this.quoteSendTransaction(tx, config)
-
-    return result
+    return readOnlyAccount
   }
 
   /**
-   * Returns a transaction's receipt.
-   *
-   * @param {string} hash - The user operation hash.
-   * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
+   * Disposes the wallet account, erasing the private key from the memory.
    */
-  async getTransactionReceipt (hash) {
-    if (!this._account.provider) {
-      throw new Error('The wallet must be connected to a provider to get the transaction receipt.')
-    }
-
-    const safe4337Pack = await this._getSafe4337Pack()
-
-    const { transactionHash } = await safe4337Pack.getUserOperationByHash(hash)
-
-    if (!transactionHash) {
-      return null
-    }
-
-    return await super.getTransactionReceipt(transactionHash)
+  dispose () {
+    this._ownerAccount.dispose()
   }
 
-  /** @private */
   async _getSafe4337Pack () {
     if (!this._safe4337Pack) {
+      const owner = await this._ownerAccount.getAddress()
+
       this._safe4337Pack = await Safe4337Pack.init({
         provider: this._config.provider,
-        signer: this._account,
+        signer: this._ownerAccount._account,
         bundlerUrl: this._config.bundlerUrl,
         safeModulesVersion: this._config.safeModulesVersion,
         options: {
-          owners: [this._account.address],
+          owners: [owner],
           threshold: 1,
           saltNonce: SALT_NONCE
         },
@@ -247,7 +214,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
 
     try {
       const safeOperation = await safe4337Pack.createTransaction({
-        transactions: [tx],
+        transactions: [{ from: await this.getAddress(), ...tx }],
         options: {
           validUntil: twoMinutesFromNow,
           feeEstimator: this._feeEstimator,
@@ -266,44 +233,6 @@ export default class WalletAccountEvmErc4337 extends WalletAccountEvm {
       }
 
       throw err
-    }
-  }
-
-  /** @private */
-  async _getUserOperationGasCost (tx, options) {
-    const safe4337Pack = await this._getSafe4337Pack()
-
-    try {
-      const safeOperation = await safe4337Pack.createTransaction({
-        transactions: [tx],
-        options: {
-          feeEstimator: this._feeEstimator,
-          ...options
-        }
-      })
-
-      const {
-        callGasLimit,
-        verificationGasLimit,
-        preVerificationGas,
-        paymasterVerificationGasLimit,
-        paymasterPostOpGasLimit,
-        maxFeePerGas
-      } = safeOperation.userOperation
-
-      const gasCost = Number((callGasLimit + verificationGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas)
-
-      const exchangeRate = await safe4337Pack.getTokenExchangeRate(options.paymasterTokenAddress)
-
-      const gasCostInPaymasterToken = Math.ceil(gasCost * exchangeRate / 10 ** 18)
-
-      return gasCostInPaymasterToken
-    } catch (error) {
-      if (error.message.includes('AA50')) {
-        throw new Error('Simulation failed: not enough funds in the safe account to repay the paymaster.')
-      }
-
-      throw error
     }
   }
 }

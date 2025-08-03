@@ -5,6 +5,7 @@
   "description": "A simple package to manage BIP-32 wallets for evm blockchains, which implement the erc-4337 standard and its account abstraction features",
   "main": "index.js",
   "type": "module",
+  "types": "./types",
   "scripts": {
     "build:types": "rimraf *.d.ts **/*.d.ts; tsc",
     "lint": "standard",
@@ -12,6 +13,7 @@
   },
   "dependencies": {
     "@wdk-safe-global/relay-kit": "4.1.0",
+    "@wdk/wallet": "https://github.com/tetherto/wdk-wallet.git#develop",
     "@wdk/wallet-evm": "https://github.com/tetherto/wdk-wallet-evm.git#develop",
     "ethers": "6.14.4"
   },

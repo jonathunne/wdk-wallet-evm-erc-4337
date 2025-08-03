@@ -14,13 +14,23 @@
 
 'use strict'
 
-import WalletManagerEvm from '@wdk/wallet-evm'
+import WalletManager from '@wdk/wallet'
+
+import { BrowserProvider, JsonRpcProvider } from 'ethers'
 
 import WalletAccountEvmErc4337 from './wallet-account-evm-erc-4337.js'
 
+/** @typedef {import('ethers').Provider} Provider */
+
+/** @typedef {import('@wdk/wallet-evm').FeeRates} FeeRates */
+
 /** @typedef {import('./wallet-account-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
 
-export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
+const FEE_RATE_NORMAL_MULTIPLIER = 1.1
+
+const FEE_RATE_FAST_MULTIPLIER = 2.0
+
+export default class WalletManagerEvmErc4337 extends WalletManager {
   /**
    * Creates a new wallet manager for evm blockchains that implements the [erc-4337](https://www.erc4337.io/docs) standard and its account abstraction features.
    *
@@ -37,6 +47,28 @@ export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
      * @type {EvmErc4337WalletConfig}
      */
     this._config = config
+
+    /**
+     * A map between derivation paths and wallet accounts. It contains all the wallet accounts that have been accessed through the {@link getAccount} and {@link getAccountByPath} methods.
+     *
+     * @protected
+     * @type {{ [path: string]: WalletAccountEvmErc4337 }}
+     */
+    this._accounts = {}
+
+    const { provider } = config
+
+    if (provider) {
+      /**
+       * An ethers provider to interact with a node of the blockchain.
+       *
+       * @protected
+       * @type {Provider | undefined}
+       */
+      this._provider = typeof provider === 'string'
+        ? new JsonRpcProvider(provider)
+        : new BrowserProvider(provider)
+    }
   }
 
   /**
@@ -69,5 +101,32 @@ export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
     }
 
     return this._accounts[path]
+  }
+
+  /**
+   * Returns the current fee rates.
+   *
+   * @returns {Promise<FeeRates>} The fee rates (in weis).
+   */
+  async getFeeRates () {
+    const feeData = await this._provider.getFeeData()
+
+    const maxFeePerGas = Number(feeData.maxFeePerGas)
+
+    return {
+      normal: Math.round(maxFeePerGas * FEE_RATE_NORMAL_MULTIPLIER),
+      fast: maxFeePerGas * FEE_RATE_FAST_MULTIPLIER
+    }
+  }
+
+  /**
+   * Disposes all the wallet accounts, erasing their private keys from the memory.
+   */
+  dispose () {
+    for (const account of Object.values(this._accounts)) {
+      account.dispose()
+    }
+
+    this._accounts = {}
   }
 }

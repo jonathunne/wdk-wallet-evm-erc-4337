@@ -1,5 +1,4 @@
-/** @typedef {import('./wallet-account-evm-erc-4337.js').EvmErc4337WalletConfig} EvmErc4337WalletConfig */
-export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
+export default class WalletManagerEvmErc4337 extends WalletManager {
     /**
      * Creates a new wallet manager for evm blockchains that implements the [erc-4337](https://www.erc4337.io/docs) standard and its account abstraction features.
      *
@@ -7,6 +6,29 @@ export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
      * @param {EvmErc4337WalletConfig} config - The configuration object.
      */
     constructor(seed: string | Uint8Array, config: EvmErc4337WalletConfig);
+    /**
+     * The evm erc-4337 wallet configuration.
+     *
+     * @protected
+     * @type {EvmErc4337WalletConfig}
+     */
+    protected _config: EvmErc4337WalletConfig;
+    /**
+     * A map between derivation paths and wallet accounts. It contains all the wallet accounts that have been accessed through the {@link getAccount} and {@link getAccountByPath} methods.
+     *
+     * @protected
+     * @type {{ [path: string]: WalletAccountEvmErc4337 }}
+     */
+    protected _accounts: {
+        [path: string]: WalletAccountEvmErc4337;
+    };
+    /**
+     * An ethers provider to interact with a node of the blockchain.
+     *
+     * @protected
+     * @type {Provider | undefined}
+     */
+    protected _provider: Provider | undefined;
     /**
      * Returns the wallet account at a specific index (see [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)).
      *
@@ -27,7 +49,19 @@ export default class WalletManagerEvmErc4337 extends WalletManagerEvm {
      * @returns {Promise<WalletAccountEvmErc4337>} The account.
      */
     getAccountByPath(path: string): Promise<WalletAccountEvmErc4337>;
+    /**
+     * Returns the current fee rates.
+     *
+     * @returns {Promise<FeeRates>} The fee rates (in weis).
+     */
+    getFeeRates(): Promise<FeeRates>;
+    /**
+     * Disposes all the wallet accounts, erasing their private keys from the memory.
+     */
+    dispose(): void;
 }
+export type Provider = import("ethers").Provider;
+export type FeeRates = import("@wdk/wallet-evm").FeeRates;
 export type EvmErc4337WalletConfig = import("./wallet-account-evm-erc-4337.js").EvmErc4337WalletConfig;
-import WalletManagerEvm from '@wdk/wallet-evm';
+import WalletManager from '@wdk/wallet';
 import WalletAccountEvmErc4337 from './wallet-account-evm-erc-4337.js';
