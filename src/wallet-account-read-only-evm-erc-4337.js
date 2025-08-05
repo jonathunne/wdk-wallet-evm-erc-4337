@@ -226,13 +226,11 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
   async _getUserOperationGasCost (txs, options) {
     const safe4337Pack = await this._getSafe4337Pack()
 
-    const from = await this.getAddress()
-
-    const transactions = txs.map((tx) => ({ from, ...tx }))
+    const address = await this.getAddress()
 
     try {
       const safeOperation = await safe4337Pack.createTransaction({
-        transactions,
+        transactions: txs.map(tx => ({ from: address, ...tx })),
         options: {
           feeEstimator: this._feeEstimator,
           ...options

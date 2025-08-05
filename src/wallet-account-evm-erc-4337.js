@@ -210,15 +210,13 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   async _sendUserOperation (txs, options) {
     const safe4337Pack = await this._getSafe4337Pack()
 
+    const address = await this.getAddress()
+
     const twoMinutesFromNow = Math.floor(Date.now() / 1_000) + 2 * 60
-
-    const from = await this.getAddress()
-
-    const transactions = txs.map((tx) => ({ from, ...tx }))
 
     try {
       const safeOperation = await safe4337Pack.createTransaction({
-        transactions,
+        transactions: txs.map(tx => ({ from: address, ...tx })),
         options: {
           validUntil: twoMinutesFromNow,
           feeEstimator: this._feeEstimator,
