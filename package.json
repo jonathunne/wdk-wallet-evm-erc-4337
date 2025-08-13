@@ -10,10 +10,21 @@
     "lint": "standard",
     "lint:fix": "standard --fix"
   },
+  "exports": {
+    ".": {
+      "bare": "./bare.js",
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    },
+    "./package": {
+      "default": "./package.json"
+    }
+  },
   "dependencies": {
     "@wdk-safe-global/relay-kit": "4.1.0",
     "@wdk/wallet": "https://github.com/tetherto/wdk-wallet.git#develop",
     "@wdk/wallet-evm": "https://github.com/tetherto/wdk-wallet-evm.git#develop",
+    "bare-wdk-runtime": "^2.0.0",
     "ethers": "6.14.4"
   },
   "devDependencies": {
