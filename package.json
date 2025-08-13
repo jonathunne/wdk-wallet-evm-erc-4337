@@ -14,7 +14,7 @@
     "@wdk-safe-global/relay-kit": "4.1.0",
     "@wdk/wallet": "https://github.com/tetherto/wdk-wallet.git#develop",
     "@wdk/wallet-evm": "https://github.com/tetherto/wdk-wallet-evm.git#develop",
-    "bare-wdk-runtime": "^2.0.0",
+    "bare-wdk-runtime": "2.0.0",
     "ethers": "6.14.4"
   },
   "devDependencies": {
@@ -25,11 +25,9 @@
   "exports": {
     ".": {
       "bare": "./bare.js",
-      "import": "./index.js",
-      "types": "./index.d.ts"
+      "types": "./index.d.ts",
+      "default": "./index.js"
     },
-    "./package": {
-      "default": "./package.json"
-    }
+  "./package": "./package.json"
   }
 }
