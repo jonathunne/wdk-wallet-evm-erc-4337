@@ -279,6 +279,69 @@ const wallet = new WalletManagerEvmErc4337(seedPhrase, {
 | `getFeeRates()` | Returns current bundler fee rates for UserOperations | `Promise<{normal: bigint, fast: bigint}>` |
 | `dispose()` | Disposes all wallet accounts, clearing private keys from memory | `void` |
 
+##### `getAccount(index)`
+Returns an ERC-4337 wallet account at the specified index using BIP-44 derivation.
+
+**Parameters:**
+- `index` (number, optional): The index of the account to get (default: 0)
+
+**Returns:** `Promise<WalletAccountEvmErc4337>` - The ERC-4337 wallet account
+
+**Example:**
+```javascript
+const account = await wallet.getAccount(0)
+const address = await account.getAddress()
+console.log('Smart account address:', address)
+```
+
+##### `getAccountByPath(path)`
+Returns an ERC-4337 wallet account at the specified BIP-44 derivation path.
+
+**Parameters:**
+- `path` (string): The derivation path (e.g., "0'/0/0", "1'/0/5")
+
+**Returns:** `Promise<WalletAccountEvmErc4337>` - The ERC-4337 wallet account
+
+**Example:**
+```javascript
+const account = await wallet.getAccountByPath("0'/0/1")
+const address = await account.getAddress()
+console.log('Smart account address:', address)
+```
+
+##### `getFeeRates()`
+Returns current bundler fee rates for ERC-4337 UserOperations.
+
+**Returns:** `Promise<{normal: bigint, fast: bigint}>` - Object containing bundler fee rates in wei
+- `normal`: Standard fee rate for normal UserOperation processing
+- `fast`: Higher fee rate for priority UserOperation processing
+
+**Example:**
+```javascript
+const feeRates = await wallet.getFeeRates()
+console.log('Normal bundler fee:', feeRates.normal, 'wei')
+console.log('Fast bundler fee:', feeRates.fast, 'wei')
+
+// Use in UserOperation
+const result = await account.sendTransaction({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  value: 1000000000000000000n, // 1 ETH
+  maxFeePerGas: feeRates.fast,
+  maxPriorityFeePerGas: feeRates.normal
+})
+```
+
+##### `dispose()`
+Disposes all ERC-4337 wallet accounts and clears sensitive data from memory.
+
+**Returns:** `void`
+
+**Example:**
+```javascript
+wallet.dispose()
+// All smart accounts and private keys are now securely wiped from memory
+```
+
 ### WalletAccountEvmErc4337
 
 Represents an individual ERC-4337 wallet account. Implements `IWalletAccount` from `@wdk/wallet`.
@@ -316,16 +379,183 @@ new WalletAccountEvmErc4337(seed, path, config)
 | `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<bigint>` |
 | `dispose()` | Disposes the wallet account, clearing private keys from memory | `void` |
 
+##### `getAddress()`
+Returns the smart contract wallet address (not the EOA address).
+
+**Returns:** `Promise<string>` - The smart contract wallet address
+
+**Example:**
+```javascript
+const smartAccountAddress = await account.getAddress()
+console.log('Smart account address:', smartAccountAddress) // 0x123... (contract address)
+```
+
+##### `sign(message)`
+Signs a message using the account's private key (EOA signing for the smart account).
+
+**Parameters:**
+- `message` (string): Message to sign
+
+**Returns:** `Promise<string>` - Signature as hex string
+
+**Example:**
+```javascript
+const signature = await account.sign('Hello ERC-4337!')
+console.log('Signature:', signature)
+```
+
+##### `verify(message, signature)`
+Verifies a message signature using the account's public key.
+
+**Parameters:**
+- `message` (string): Original message
+- `signature` (string): Signature as hex string
+
+**Returns:** `Promise<boolean>` - True if signature is valid
+
+**Example:**
+```javascript
+const isValid = await account.verify('Hello ERC-4337!', signature)
+console.log('Signature valid:', isValid)
+```
+
 ##### `sendTransaction(tx)`
-Sends a transaction via UserOperation through the bundler.
+Sends a transaction via UserOperation through the ERC-4337 bundler.
 
 **Parameters:**
 - `tx` (object): The transaction object
   - `to` (string): Recipient address
   - `value` (number | bigint): Amount in wei
   - `data` (string, optional): Transaction data in hex format
+  - `gasLimit` (number | bigint, optional): Maximum gas units for the UserOperation
+  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
+  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
+
+**Returns:** `Promise<{hash: string, fee: bigint}>` - Object containing UserOperation hash and total fee (in wei)
+
+**Example:**
+```javascript
+const result = await account.sendTransaction({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  value: 1000000000000000000n, // 1 ETH in wei
+  maxFeePerGas: 20000000000n, // 20 gwei
+  maxPriorityFeePerGas: 2000000000n // 2 gwei
+})
+console.log('UserOperation hash:', result.hash)
+console.log('Total fee paid:', result.fee, 'wei')
+```
+
+##### `quoteSendTransaction(tx)`
+Estimates the fee for a UserOperation without submitting it to the bundler.
+
+**Parameters:**
+- `tx` (object): Same as sendTransaction parameters
+  - `to` (string): Recipient address
+  - `value` (number | bigint): Amount in wei
+  - `data` (string, optional): Transaction data in hex format
+  - `gasLimit` (number | bigint, optional): Maximum gas units
+  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
+  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
+
+**Returns:** `Promise<{fee: bigint}>` - Object containing estimated total fee (in wei)
+
+**Example:**
+```javascript
+const quote = await account.quoteSendTransaction({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  value: 1000000000000000000n // 1 ETH in wei
+})
+console.log('Estimated UserOperation fee:', quote.fee, 'wei')
+console.log('Estimated fee in ETH:', Number(quote.fee) / 1e18)
+```
+
+##### `transfer(options)`
+Transfers ERC20 tokens via UserOperation through the bundler.
+
+**Parameters:**
+- `options` (object): Transfer options
+  - `to` (string): Recipient address
+  - `tokenAddress` (string): ERC20 token contract address
+  - `value` (number | bigint): Amount in token's smallest unit
+  - `gasLimit` (number | bigint, optional): Maximum gas units
+  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
+  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
 
 **Returns:** `Promise<{hash: string, fee: bigint}>` - Object containing UserOperation hash and fee (in wei)
+
+**Example:**
+```javascript
+const result = await account.transfer({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  tokenAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+  value: 1000000n, // 1 USDT (6 decimals)
+  maxFeePerGas: 20000000000n
+})
+console.log('UserOperation hash:', result.hash)
+console.log('Gas fee paid:', result.fee, 'wei')
+```
+
+##### `quoteTransfer(options)`
+Estimates the fee for an ERC20 token transfer UserOperation without submitting it.
+
+**Parameters:**
+- `options` (object): Same as transfer parameters
+  - `to` (string): Recipient address
+  - `tokenAddress` (string): ERC20 token contract address
+  - `value` (number | bigint): Amount in token's smallest unit
+  - `gasLimit` (number | bigint, optional): Maximum gas units
+  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
+  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
+
+**Returns:** `Promise<{fee: bigint}>` - Object containing estimated fee (in wei)
+
+**Example:**
+```javascript
+const quote = await account.quoteTransfer({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  tokenAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+  value: 1000000n // 1 USDT (6 decimals)
+})
+console.log('Estimated transfer fee:', quote.fee, 'wei')
+```
+
+##### `getBalance()`
+Returns the smart contract wallet's native token balance (e.g., ETH, MATIC, etc.) in wei.
+
+**Returns:** `Promise<bigint>` - Balance in wei
+
+**Example:**
+```javascript
+const balance = await account.getBalance()
+console.log('Smart account balance:', balance, 'wei')
+console.log('Balance in ETH:', Number(balance) / 1e18)
+```
+
+##### `getTokenBalance(tokenAddress)`
+Returns the smart contract wallet's balance of a specific ERC20 token.
+
+**Parameters:**
+- `tokenAddress` (string): The ERC20 token contract address
+
+**Returns:** `Promise<bigint>` - Token balance in token's smallest unit
+
+**Example:**
+```javascript
+// Get USDT balance (6 decimals)
+const usdtBalance = await account.getTokenBalance('0xdAC17F958D2ee523a2206206994597C13D831ec7')
+console.log('Smart account USDT balance:', Number(usdtBalance) / 1e6)
+```
+
+##### `dispose()`
+Disposes the wallet account, securely erasing the private key from memory.
+
+**Returns:** `void`
+
+**Example:**
+```javascript
+account.dispose()
+// Private key is now securely wiped from memory
+```
 
 #### Properties
 
@@ -362,6 +592,82 @@ new WalletAccountReadOnlyEvmErc4337(address, config)
 | `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<bigint>` |
 | `quoteSendTransaction(tx)` | Estimates the fee for a UserOperation | `Promise<{fee: bigint}>` |
 | `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: bigint}>` |
+
+##### `getBalance()`
+Returns the smart contract wallet's native token balance (e.g., ETH, MATIC, etc.) in wei.
+
+**Returns:** `Promise<bigint>` - Balance in wei
+
+**Example:**
+```javascript
+const balance = await readOnlyAccount.getBalance()
+console.log('Smart account balance:', balance, 'wei')
+console.log('Balance in ETH:', Number(balance) / 1e18)
+```
+
+##### `getTokenBalance(tokenAddress)`
+Returns the smart contract wallet's balance of a specific ERC20 token.
+
+**Parameters:**
+- `tokenAddress` (string): The ERC20 token contract address
+
+**Returns:** `Promise<bigint>` - Token balance in token's smallest unit
+
+**Example:**
+```javascript
+// Get USDT balance (6 decimals) for the smart account
+const usdtBalance = await readOnlyAccount.getTokenBalance('0xdAC17F958D2ee523a2206206994597C13D831ec7')
+console.log('Smart account USDT balance:', Number(usdtBalance) / 1e6)
+```
+
+##### `quoteSendTransaction(tx)`
+Estimates the fee for a UserOperation without submitting it to the bundler.
+
+**Parameters:**
+- `tx` (object): The transaction object
+  - `to` (string): Recipient address
+  - `value` (number | bigint): Amount in wei
+  - `data` (string, optional): Transaction data in hex format
+  - `gasLimit` (number | bigint, optional): Maximum gas units
+  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
+  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
+
+**Returns:** `Promise<{fee: bigint}>` - Object containing estimated total UserOperation fee (in wei)
+
+**Example:**
+```javascript
+const quote = await readOnlyAccount.quoteSendTransaction({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  value: 1000000000000000000n // 1 ETH in wei
+})
+console.log('Estimated UserOperation fee:', quote.fee, 'wei')
+console.log('Estimated fee in ETH:', Number(quote.fee) / 1e18)
+```
+
+##### `quoteTransfer(options)`
+Estimates the fee for an ERC20 token transfer UserOperation without submitting it to the bundler.
+
+**Parameters:**
+- `options` (object): Transfer options
+  - `to` (string): Recipient address
+  - `tokenAddress` (string): ERC20 token contract address
+  - `value` (number | bigint): Amount in token's smallest unit
+  - `gasLimit` (number | bigint, optional): Maximum gas units
+  - `maxFeePerGas` (number | bigint, optional): EIP-1559 max fee per gas in wei
+  - `maxPriorityFeePerGas` (number | bigint, optional): EIP-1559 max priority fee per gas in wei
+
+**Returns:** `Promise<{fee: bigint}>` - Object containing estimated UserOperation fee (in wei)
+
+**Example:**
+```javascript
+const quote = await readOnlyAccount.quoteTransfer({
+  to: '0x742C4265F5Ba4F8E0842e2b9EfE66302F7a13B6F',
+  tokenAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+  value: 1000000n // 1 USDT (6 decimals)
+})
+console.log('Estimated transfer UserOperation fee:', quote.fee, 'wei')
+console.log('Estimated fee in ETH:', Number(quote.fee) / 1e18)
+```
 
 ## 🌐 Supported Networks
 
