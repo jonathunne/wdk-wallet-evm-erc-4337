@@ -1,6 +1,6 @@
 # @wdk/wallet-evm-erc-4337
 
-<!-- Here we will put some badges like the build status, the latest version of the package, ...; we will add these later on, so don't worry about them at the moment. -->
+**Note**: This package is currently in beta. Please test thoroughly in development environments before using in production.
 
 A simple and secure package to manage ERC-4337 compliant wallets for EVM-compatible blockchains. This package provides a clean API for creating, managing, and interacting with account abstraction wallets using BIP-39 seed phrases and EVM-specific derivation paths.
 
@@ -17,51 +17,21 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 - **Multi-Account Management**: Create and manage multiple account abstraction wallets from a single seed phrase
 - **ERC-4337 Support**: Full implementation of ERC-4337 account abstraction standard
 - **UserOperation Management**: Create and send UserOperations through bundlers
-- **Message Signing**: Sign and verify messages using EVM cryptography
 - **ERC20 Support**: Query native token and ERC20 token balances using smart contract interactions
-- **TypeScript Support**: Full TypeScript definitions included
-- **Memory Safety**: Secure private key management with memory-safe HDNodeWallet implementation
-- **Bundler Integration**: Support for ERC-4337 bundler services
-- **Gas Optimization**: Paymaster support and gas estimation for UserOperations
-- **Fee Estimation**: Dynamic fee calculation with bundler-aware estimation
 
 ## ⬇️ Installation
 
 To install the `@wdk/wallet-evm-erc-4337` package, follow these instructions:
 
-### Public Release
-
-Once the package is publicly available, you can install it using npm:
+You can install it using npm:
 
 ```bash
 npm install @wdk/wallet-evm-erc-4337
 ```
 
-### Private Access
-
-If you have access to the private repository, install the package from the develop branch on GitHub:
-
-```bash
-npm install git+https://github.com/tetherto/wdk-wallet-evm-erc-4337.git#develop
-```
-
-After installation, ensure your package.json includes the dependency correctly:
-
-```json
-"dependencies": {
-  // ... other dependencies ...
-  "@wdk/wallet-evm-erc-4337": "git+ssh://git@github.com:tetherto/wdk-wallet-evm-erc-4337.git#develop"
-  // ... other dependencies ...
-}
-```
-
 ## 🚀 Quick Start
 
 ### Importing from `@wdk/wallet-evm-erc-4337`
-
-1. WalletManagerEvmErc4337: Main class for managing ERC-4337 wallets
-2. WalletAccountEvmErc4337: Use this for full access accounts
-3. WalletAccountReadOnlyEvmErc4337: Use this for read-only accounts
 
 ### Creating a New Wallet
 
@@ -72,14 +42,19 @@ import WalletManagerEvmErc4337, {
 } from '@wdk/wallet-evm-erc-4337'
 
 // Use a BIP-39 seed phrase (replace with your own secure phrase)
-const seedPhrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+const seedPhrase = 'test only example nut use this real life secret phrase must random'
 
 // Create wallet manager with ERC-4337 config
 const wallet = new WalletManagerEvmErc4337(seedPhrase, {
+  // Required parameters
+  chainId: 1, // Ethereum Mainnet
   provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key', // RPC endpoint
   bundlerUrl: 'https://api.stackup.sh/v1/bundler/your-api-key', // ERC-4337 bundler
   entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789', // EntryPoint contract
-  factoryAddress: '0x...',  // Account factory contract
+  factoryAddress: '0x3F51274DfD7c51Ac1C4C798B21f295611560d511',  // Account factory contract
+  
+  // Optional parameters
+  paymasterUrl: 'https://api.paymaster.com', // Optional: Paymaster service URL
   transferMaxFee: 100000000000000 // Optional: Maximum fee in wei
 })
 
@@ -132,6 +107,7 @@ console.log('Native balance:', balance, 'wei') // 1 ETH = 1000000000000000000 we
 
 // Get ERC20 token balance
 const tokenContract = '0x...'; // ERC20 contract address
+
 const tokenBalance = await account.getTokenBalance(tokenContract);
 console.log('Token balance:', tokenBalance);
 
@@ -147,17 +123,18 @@ For addresses where you don't have the seed phrase:
 import { WalletAccountReadOnlyEvmErc4337 } from '@wdk/wallet-evm-erc-4337'
 
 // Create a read-only account
-const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337('0x...', { // Smart contract wallet address
+const readOnlyAccount = new WalletAccountReadOnlyEvmErc4337('0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24', { // Smart contract wallet address
   provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key',
   bundlerUrl: 'https://api.stackup.sh/v1/bundler/your-api-key',
   entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789'
 })
+
 // Check native token balance
 const balance = await readOnlyAccount.getBalance()
 console.log('Native balance:', balance, 'wei')
 
 // Check ERC20 token balance using contract
-const tokenBalance = await readOnlyAccount.getTokenBalance('0x...') // ERC20 contract address
+const tokenBalance = await readOnlyAccount.getTokenBalance('0xdAC17F958D2ee523a2206206994597C13D831ec7') // USDT contract address
 console.log('Token balance:', tokenBalance)
 
 // Note: ERC20 balance checks use the standard balanceOf(address) function
@@ -169,19 +146,18 @@ console.log('Token balance:', tokenBalance)
 Send transactions using UserOperations through the bundler service. All transactions are handled via the EntryPoint contract.
 
 ```javascript
-// Send native tokens
+// Send native tokens via UserOperation
 const result = await account.sendTransaction({
-  to: '0x...', // Recipient address
+  to: '0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24', // Recipient address
   value: 1000000000000000000n, // 1 ETH in wei
   data: '0x', // Optional: transaction data
 })
 console.log('UserOperation hash:', result.hash)
 console.log('Transaction fee:', result.fee, 'wei')
 
-
 // Get transaction fee estimate
 const quote = await account.quoteSendTransaction({
-  to: '0x...',
+  to: '0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24',
   value: 1000000000000000000n
 });
 console.log('Estimated fee:', quote.fee, 'wei');
@@ -194,21 +170,19 @@ console.log('Estimated fee:', quote.fee, 'wei');
 Transfer ERC20 tokens using UserOperations. Uses standard ERC20 `transfer` function.
 
 ```javascript
-// Transfer ERC20 tokens
+// Transfer ERC20 tokens via UserOperation
 const transferResult = await account.transfer({
-  token: '0x...',      // ERC20 contract address
-  recipient: '0x...',  // Recipient's address
-  amount: 1000000n     // Amount in token's base units (use BigInt for large numbers)
-}, {
-  transferMaxFee: 1000000000000n // Optional: Maximum allowed fee in wei
+  token: '0xdAC17F958D2ee523a2206206994597C13D831ec7',      // USDT contract address
+  recipient: '0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24',  // Recipient's address
+  amount: 1000000n     // Amount in token's base units (1 USDT = 1000000 for 6 decimals)
 });
 console.log('UserOperation hash:', transferResult.hash);
 console.log('Transfer fee:', transferResult.fee, 'wei');
 
 // Quote token transfer fee
 const transferQuote = await account.quoteTransfer({
-  token: '0x...',      // ERC20 contract address
-  recipient: '0x...',  // Recipient's address
+  token: '0xdAC17F958D2ee523a2206206994597C13D831ec7',      // USDT contract address
+  recipient: '0x636e9c21f27d9401ac180666bf8DC0D3FcEb0D24',  // Recipient's address
   amount: 1000000n     // Amount in token's base units
 })
 console.log('Transfer fee estimate:', transferQuote.fee, 'wei')
@@ -216,7 +190,7 @@ console.log('Transfer fee estimate:', transferQuote.fee, 'wei')
 
 ### Message Signing and Verification
 
-Sign and verify messages using the account's private key.
+Sign and verify messages using `WalletAccountEvmErc4337`.
 
 ```javascript
 // Sign a message
@@ -231,10 +205,10 @@ console.log('Signature valid:', isValid)
 
 ### Fee Management
 
-Retrieve current fee rates using the bundler service.
+Retrieve current fee rates using `WalletManagerEvmErc4337`. Uses bundler service for fee estimation.
 
 ```javascript
-// Get current fee rates
+// Get current bundler fee rates
 const feeRates = await wallet.getFeeRates();
 console.log('Normal fee rate:', feeRates.normal, 'wei'); // Base bundler fee
 console.log('Fast fee rate:', feeRates.fast, 'wei');     // Priority bundler fee
@@ -256,19 +230,16 @@ wallet.dispose()
 
 ### Table of Contents
 
-### Table of Contents
-
 | Class | Description | Methods |
 |-------|-------------|---------|
 | [WalletManagerEvmErc4337](#walletmanagerevmerc4337) | Main class for managing ERC-4337 wallets. Extends `WalletManager` from `@wdk/wallet`. | [Constructor](#constructor), [Methods](#methods) |
-| [WalletAccountEvmErc4337](#walletaccountevmerc4337) | Individual ERC-4337 wallet account implementation. Extends `WalletAccountReadOnlyEvmErc4337` and implements `IWalletAccount`. | [Constructor](#constructor-1), [Methods](#methods-1), [Properties](#properties) |
-| [WalletAccountReadOnlyEvmErc4337](#walletaccountreadonlyevmerc4337) | Read-only ERC-4337 wallet account. | [Constructor](#constructor-2), [Methods](#methods-2) |
+| [WalletAccountEvmErc4337](#walletaccountevmerc4337) | Individual ERC-4337 wallet account implementation. Extends `WalletAccountReadOnlyEvmErc4337` and implements `IWalletAccount` from `@wdk/wallet`. | [Constructor](#constructor-1), [Methods](#methods-1), [Properties](#properties) |
+| [WalletAccountReadOnlyEvmErc4337](#walletaccountreadonlyevmerc4337) | Read-only ERC-4337 wallet account. Extends `WalletAccountReadOnly` from `@wdk/wallet`. | [Constructor](#constructor-2), [Methods](#methods-2) |
 
 ### WalletManagerEvmErc4337
 
 The main class for managing ERC-4337 compliant wallets.  
 Extends `WalletManager` from `@wdk/wallet`.
-
 
 #### Constructor
 
@@ -283,22 +254,19 @@ new WalletManagerEvmErc4337(seed, config)
   - `bundlerUrl` (string): URL of the ERC-4337 bundler service
   - `entryPointAddress` (string): Address of the EntryPoint contract
   - `factoryAddress` (string): Address of the account factory contract
-  - `transferMaxFee` (number, optional): Maximum fee amount for transfer operations (in wei)
-
+  - `chainId` (number): Chain ID of the target network
+  - `paymasterUrl` (string, optional): URL of the paymaster service
+  - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
 
 **Example:**
 ```javascript
 const wallet = new WalletManagerEvmErc4337(seedPhrase, {
-  // RPC provider for reading blockchain state
   provider: 'https://eth-mainnet.g.alchemy.com/v2/your-api-key',
-  
-  // ERC-4337 specific configuration
   bundlerUrl: 'https://api.stackup.sh/v1/bundler/your-api-key',
   entryPointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
   factoryAddress: '0x3F51274DfD7c51Ac1C4C798B21f295611560d511',
-  
-  // Optional: Maximum fee in wei
-  transferMaxFee: '100000000000000'
+  chainId: 1,
+  transferMaxFee: '100000000000000' // Maximum fee in wei
 })
 ```
 
@@ -308,11 +276,10 @@ const wallet = new WalletManagerEvmErc4337(seedPhrase, {
 |--------|-------------|---------|
 | `getAccount(index)` | Returns a wallet account at the specified index | `Promise<WalletAccountEvmErc4337>` |
 | `getAccountByPath(path)` | Returns a wallet account at the specified BIP-44 derivation path | `Promise<WalletAccountEvmErc4337>` |
-| `getFeeRates()` | Returns current bundler fee rates for UserOperations | `Promise<{normal: number, fast: number}>` |
+| `getFeeRates()` | Returns current bundler fee rates for UserOperations | `Promise<{normal: bigint, fast: bigint}>` |
 | `dispose()` | Disposes all wallet accounts, clearing private keys from memory | `void` |
 
-
-### WalletAccountEvm
+### WalletAccountEvmErc4337
 
 Represents an individual ERC-4337 wallet account. Implements `IWalletAccount` from `@wdk/wallet`.
 
@@ -330,23 +297,23 @@ new WalletAccountEvmErc4337(seed, path, config)
   - `bundlerUrl` (string): URL of the ERC-4337 bundler service
   - `entryPointAddress` (string): Address of the EntryPoint contract
   - `factoryAddress` (string): Address of the account factory contract
-  - `transferMaxFee` (number, optional): Maximum fee amount for transfer operations (in wei)
-
+  - `chainId` (number): Chain ID of the target network
+  - `paymasterUrl` (string, optional): URL of the paymaster service
+  - `transferMaxFee` (number | bigint, optional): Maximum fee amount for transfer operations (in wei)
 
 #### Methods
-
 
 | Method | Description | Returns |
 |--------|-------------|---------|
 | `getAddress()` | Returns the smart contract wallet address | `Promise<string>` |
 | `sign(message)` | Signs a message using the account's private key | `Promise<string>` |
 | `verify(message, signature)` | Verifies a message signature | `Promise<boolean>` |
-| `sendTransaction(tx)` | Sends a transaction via UserOperation | `Promise<{hash: string, fee: number}>` |
-| `quoteSendTransaction(tx)` | Estimates the fee for a UserOperation | `Promise<{fee: number}>` |
-| `transfer(options)` | Transfers ERC20 tokens via UserOperation | `Promise<{hash: string, fee: number}>` |
-| `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: number}>` |
-| `getBalance()` | Returns the native token balance (in wei) | `Promise<number>` |
-| `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<number>` |
+| `sendTransaction(tx)` | Sends a transaction via UserOperation | `Promise<{hash: string, fee: bigint}>` |
+| `quoteSendTransaction(tx)` | Estimates the fee for a UserOperation | `Promise<{fee: bigint}>` |
+| `transfer(options)` | Transfers ERC20 tokens via UserOperation | `Promise<{hash: string, fee: bigint}>` |
+| `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: bigint}>` |
+| `getBalance()` | Returns the native token balance (in wei) | `Promise<bigint>` |
+| `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<bigint>` |
 | `dispose()` | Disposes the wallet account, clearing private keys from memory | `void` |
 
 ##### `sendTransaction(tx)`
@@ -355,10 +322,10 @@ Sends a transaction via UserOperation through the bundler.
 **Parameters:**
 - `tx` (object): The transaction object
   - `to` (string): Recipient address
-  - `value` (number): Amount in wei
+  - `value` (number | bigint): Amount in wei
   - `data` (string, optional): Transaction data in hex format
 
-**Returns:** `Promise<{hash: string, fee: number}>` - Object containing UserOperation hash and fee (in wei)
+**Returns:** `Promise<{hash: string, fee: bigint}>` - Object containing UserOperation hash and fee (in wei)
 
 #### Properties
 
@@ -391,14 +358,14 @@ new WalletAccountReadOnlyEvmErc4337(address, config)
 
 | Method | Description | Returns |
 |--------|-------------|---------|
-| `getBalance()` | Returns the native token balance (in wei) | `Promise<number>` |
-| `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<number>` |
-| `quoteSendTransaction(tx)` | Estimates the fee for a UserOperation | `Promise<{fee: number}>` |
-| `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: number}>` |
+| `getBalance()` | Returns the native token balance (in wei) | `Promise<bigint>` |
+| `getTokenBalance(tokenAddress)` | Returns the balance of a specific ERC20 token | `Promise<bigint>` |
+| `quoteSendTransaction(tx)` | Estimates the fee for a UserOperation | `Promise<{fee: bigint}>` |
+| `quoteTransfer(options)` | Estimates the fee for an ERC20 transfer | `Promise<{fee: bigint}>` |
 
 ## 🌐 Supported Networks
 
-This package works with any EVM-compatible blockchain, including:
+This package works with any EVM-compatible blockchain that supports ERC-4337, including:
 
 - **Ethereum Mainnet**
 - **Ethereum Testnets** (Sepolia, etc.)
@@ -466,5 +433,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 For support, please open an issue on the GitHub repository.
 
 ---
-
-**Note**: This package is currently in beta. Please test thoroughly in development environments before using in production.
