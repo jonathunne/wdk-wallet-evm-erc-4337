@@ -12,7 +12,6 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 
 ## 🌟 Features
 
-- **BIP-39 Seed Phrase Support**: Generate and validate BIP-39 mnemonic seed phrases
 - **EVM Derivation Paths**: Support for BIP-44 standard derivation paths for Ethereum (m/44'/60')
 - **Multi-Account Management**: Create and manage multiple account abstraction wallets from a single seed phrase
 - **ERC-4337 Support**: Full implementation of ERC-4337 account abstraction standard
