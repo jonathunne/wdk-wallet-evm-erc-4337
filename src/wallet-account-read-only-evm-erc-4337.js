@@ -77,10 +77,15 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * @protected
      * @type {GenericFeeEstimator}
      */
-    this._feeEstimator = new GenericFeeEstimator(
-      config.provider,
-      `0x${config.chainId.toString(16)}`
-    )
+    this._feeEstimator = undefined
+
+    /**
+     * The chain id.
+     *
+     * @protected
+     * @type {bigint}
+     */
+    this._chainId = undefined
 
     /** @private */
     this._ownerAccountAddress = address
@@ -187,6 +192,18 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
   }
 
   /**
+   * Returns the current allowance for the given token and spender.
+   * @param {string} token The token’s address.
+   * @param {string} spender The spender’s address.
+   * @returns {Promise<bigint>} The allowance.
+   */
+  async getAllowance (token, spender) {
+    const readOnlyAccount = await this._getEvmReadOnlyAccount()
+
+    return await readOnlyAccount.getAllowance(token, spender)
+  }
+
+  /**
    * Returns the safe's erc-4337 pack of the account.
    *
    * @protected
@@ -218,6 +235,24 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     return this._safe4337Pack
   }
 
+  /**
+   * Returns the chain id.
+   *
+   * @protected
+   * @returns {Promise<bigint>} The chain id.
+   */
+  async _getChainId () {
+    const evmReadOnlyAccount = await this._getEvmReadOnlyAccount()
+
+    if (!this._chainId) {
+      const { chainId } = await evmReadOnlyAccount._provider.getNetwork()
+
+      this._chainId = chainId
+    }
+
+    return this._chainId
+  }
+
   /** @private */
   async _getEvmReadOnlyAccount () {
     const address = await this.getAddress()
@@ -225,6 +260,20 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     const evmReadOnlyAccount = new WalletAccountReadOnlyEvm(address, this._config)
 
     return evmReadOnlyAccount
+  }
+
+  /** @private */
+  async _getFeeEstimator () {
+    if (!this._feeEstimator) {
+      const chainId = await this._getChainId()
+
+      this._feeEstimator = new GenericFeeEstimator(
+        this._config.provider,
+        `0x${chainId.toString(16)}`
+      )
+    }
+
+    return this._feeEstimator
   }
 
   /** @private */
@@ -237,7 +286,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
       const safeOperation = await safe4337Pack.createTransaction({
         transactions: txs.map(tx => ({ from: address, ...tx })),
         options: {
-          feeEstimator: this._feeEstimator,
+          feeEstimator: await this._getFeeEstimator(),
           ...options
         }
       })
