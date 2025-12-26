@@ -108,24 +108,23 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
 
   /**
    * Predicts the address of a safe account.
-   * 
+   *
    * @param {string} owner - The safe owner's address.
    * @param {Pick<EvmErc4337WalletConfig, 'chainId' | 'safeModulesVersion'>} config - The safe configuration
    * @returns {string} The Safe address.
    */
-    static predictSafeAddress (owner, { chainId, safeModulesVersion }) {
-      const safeAddress = Safe4337Pack.predictSafeAddress({
-        owner,
-        threshold: 1,
-        saltNonce: SALT_NONCE,
-        chainId,
-        safeVersion: '1.4.1',
-        safeModulesVersion: safeModulesVersion
-      })
-  
-      return safeAddress
-    }
-  
+  static predictSafeAddress (owner, { chainId, safeModulesVersion }) {
+    const safeAddress = Safe4337Pack.predictSafeAddress({
+      owner,
+      threshold: 1,
+      saltNonce: SALT_NONCE,
+      chainId,
+      safeVersion: '1.4.1',
+      safeModulesVersion
+    })
+
+    return safeAddress
+  }
 
   /**
    * Returns the account's eth balance.
