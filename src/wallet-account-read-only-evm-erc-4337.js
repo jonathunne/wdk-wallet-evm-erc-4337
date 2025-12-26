@@ -94,19 +94,6 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
   }
 
   /**
-   * Returns the account's address.
-   *
-   * @returns {Promise<string>} The account's address.
-   */
-  async getAddress () {
-    const safe4337pack = await this._getSafe4337Pack()
-
-    const address = await safe4337pack.protocolKit.getAddress()
-
-    return address
-  }
-
-  /**
    * Predicts the address of a safe account.
    *
    * @param {string} owner - The safe owner's address.
