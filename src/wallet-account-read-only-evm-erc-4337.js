@@ -102,7 +102,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    */
   static predictSafeAddress (owner, { chainId, safeModulesVersion }) {
     const safeAddress = Safe4337Pack.predictSafeAddress({
-      owner,
+      owners: [owner],
       threshold: 1,
       saltNonce: SALT_NONCE,
       chainId,
