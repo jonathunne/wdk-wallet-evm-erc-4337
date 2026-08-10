@@ -338,7 +338,7 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
     const txs = [tx]
     const prepared = await this._prepareForSend(tx, txs, mergedConfig)
 
-    if (!isSponsored && transferMaxFee !== undefined && prepared.fee >= transferMaxFee) {
+    if (!isSponsored && transferMaxFee !== undefined && prepared.fee > transferMaxFee) {
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 

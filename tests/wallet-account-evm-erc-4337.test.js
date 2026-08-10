@@ -564,7 +564,8 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
         expect(sendUserOperationMock).not.toHaveBeenCalled()
       })
 
-      test('should throw if the fee equals the transfer max fee configuration', async () => {
+      test('should allow a fee exactly equal to the transfer max fee configuration', async () => {
+        sendUserOperationMock.mockResolvedValue(DUMMY_USER_OP_HASH)
         createPaymasterUserOperationMock.mockResolvedValue({
           userOperation: { ...DUMMY_USER_OP },
           tokenQuote: { tokenCost: 500_000n }
@@ -575,10 +576,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           transferMaxFee: 600_000n
         })
 
-        await expect(pmAccount.transfer(TRANSFER))
-          .rejects.toThrow('Exceeded maximum fee cost for transfer operation.')
+        const { hash, fee } = await pmAccount.transfer(TRANSFER)
 
-        expect(sendUserOperationMock).not.toHaveBeenCalled()
+        expect(hash).toBe(DUMMY_USER_OP_HASH)
+        expect(fee).toBe(600_000n)
       })
 
       test('should re-validate the merged config when a per-call override is provided', async () => {
