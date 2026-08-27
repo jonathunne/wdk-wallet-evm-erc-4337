@@ -593,16 +593,29 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
   }
 
   /**
-   * Returns the chain id.
+   * Returns the chain id, asserting the provider is on the configured network.
+   *
+   * The value is read once from the provider (`eth_chainId`), checked against
+   * `config.chainId`, and cached. Every UserOperation is built and signed against
+   * this value, so a provider reporting a different chain than the one the
+   * application configured must fail here rather than produce a signature for the
+   * wrong network.
    *
    * @protected
    * @returns {Promise<bigint>} - The chain id.
+   * @throws {ConfigurationError} If the provider's chain id does not match `config.chainId`.
    */
   async _getChainId () {
     if (!this._chainId) {
-      const chainId = await this._provider.request({ method: 'eth_chainId' })
+      const chainId = BigInt(await this._provider.request({ method: 'eth_chainId' }))
 
-      this._chainId = BigInt(chainId)
+      if (this._config.chainId !== undefined && chainId !== BigInt(this._config.chainId)) {
+        throw new ConfigurationError(
+          `Provider is on chain ${chainId} but the wallet is configured for chain ${this._config.chainId}`
+        )
+      }
+
+      this._chainId = chainId
     }
 
     return this._chainId

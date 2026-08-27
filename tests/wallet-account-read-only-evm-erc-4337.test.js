@@ -192,6 +192,39 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
       })
     })
 
+    describe('_getChainId', () => {
+      const TRANSACTION = { to: SPENDER, value: 1, data: '0x' }
+
+      test('should throw if the provider reports a chain other than the configured chainId', async () => {
+        // EIP1193_PROVIDER answers eth_chainId with 0x1 (mainnet).
+        const mismatched = new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...NATIVE_COINS_CONFIG, chainId: 137 })
+
+        await expect(mismatched.quoteSendTransaction(TRANSACTION))
+          .rejects.toThrow(new ConfigurationError('Provider is on chain 1 but the wallet is configured for chain 137'))
+        expect(createUserOperationMock).not.toHaveBeenCalled()
+      })
+
+      test('should return the chain id when it matches the configured chainId', async () => {
+        const matched = new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...NATIVE_COINS_CONFIG, chainId: 1 })
+
+        await expect(matched._getChainId()).resolves.toBe(1n)
+      })
+
+      test('should not enforce a chain when chainId is omitted from the config', async () => {
+        await expect(account._getChainId()).resolves.toBe(1n)
+      })
+
+      test('should read the chain id from the provider only once', async () => {
+        EIP1193_PROVIDER.request.mockClear()
+
+        await account._getChainId()
+        await account._getChainId()
+
+        const chainIdCalls = EIP1193_PROVIDER.request.mock.calls.filter(([{ method }]) => method === 'eth_chainId')
+        expect(chainIdCalls).toHaveLength(1)
+      })
+    })
+
     describe('predictSafeAddress', () => {
       test('should return the address computed by abstractionkit', () => {
         const address = WalletAccountReadOnlyEvmErc4337.predictSafeAddress(OWNER_ADDRESS, { safeModulesVersion: '0.3.0' })
