@@ -14,7 +14,14 @@
 
 'use strict'
 
-export class ConfigurationError extends Error {
+import { ValueError } from '@tetherto/wdk-wallet'
+
+/**
+ * Thrown when the wallet configuration is invalid or has missing required fields.
+ *
+ * It extends {@link ValueError}, so it is also part of the `WdkError` taxonomy.
+ */
+export class ConfigurationError extends ValueError {
   /**
    * Create a new configuration error.
    *

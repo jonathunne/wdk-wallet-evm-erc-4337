@@ -14,7 +14,7 @@
 
 'use strict'
 
-import WalletManager from '@tetherto/wdk-wallet'
+import WalletManager, { ProviderRequiredError, ValueError } from '@tetherto/wdk-wallet'
 
 import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
 
@@ -44,6 +44,7 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
    *
    * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
    * @param {EvmErc4337WalletConfig} config - The configuration object.
+   * @throws {ValueError} If the `provider` option is set to an empty list.
    */
   constructor (seed, config) {
     super(seed, config)
@@ -60,7 +61,7 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
 
     if (Array.isArray(provider)) {
       if (!provider.length) {
-        throw new Error("The 'provider' option cannot be set to an empty list.")
+        throw new ValueError("The 'provider' option cannot be set to an empty list.")
       }
 
       const failoverProvider = new FailoverProvider({ retries })
@@ -116,10 +117,11 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
    * Returns the current fee rates.
    *
    * @returns {Promise<FeeRates>} The fee rates (in weis).
+   * @throws {ProviderRequiredError} If the wallet is not connected to a provider.
    */
   async getFeeRates () {
     if (!this._provider) {
-      throw new Error('The wallet must be connected to a provider to get fee rates.')
+      throw new ProviderRequiredError('The wallet must be connected to a provider to get fee rates.')
     }
 
     const data = await this._provider.getFeeData()

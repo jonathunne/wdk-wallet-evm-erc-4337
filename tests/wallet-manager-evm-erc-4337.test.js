@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { ValueError } from '@tetherto/wdk-wallet'
 
 const actualEthers = await import('ethers')
 
@@ -58,6 +59,8 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
       })
 
       test('should throw if the provider is an empty list', () => {
+        expect(() => new WalletManagerEvmErc4337(SEED_PHRASE, { ...SPONSORED_CONFIG, provider: [] }))
+          .toThrow(ValueError)
         expect(() => new WalletManagerEvmErc4337(SEED_PHRASE, { ...SPONSORED_CONFIG, provider: [] }))
           .toThrow("The 'provider' option cannot be set to an empty list.")
       })

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals'
 import * as bip39 from 'bip39'
 import { Contract, keccak256, toUtf8Bytes } from 'ethers'
+import { MaximumFeeExceededError, ProviderRequiredError, TransactionError, TransactionErrorReason, ValueError } from '@tetherto/wdk-wallet'
 
 const actualWalletEvm = await import('@tetherto/wdk-wallet-evm')
 const actualAk = await import('abstractionkit')
@@ -167,6 +168,8 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
 
       test('should throw if the seed phrase is invalid', () => {
         expect(() => { new WalletAccountEvmErc4337(INVALID_SEED_PHRASE, "0'/0/0", SPONSORED_CONFIG) })
+          .toThrow(ValueError)
+        expect(() => { new WalletAccountEvmErc4337(INVALID_SEED_PHRASE, "0'/0/0", SPONSORED_CONFIG) })
           .toThrow('The seed phrase is invalid.')
       })
 
@@ -326,8 +329,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           transactionMaxFee: 0n
         })
 
-        await expect(pmAccount.sendTransaction(TRANSACTION))
-          .rejects.toThrow('Exceeded maximum fee cost for transaction operation.')
+        const promise = pmAccount.sendTransaction(TRANSACTION)
+
+        await expect(promise).rejects.toThrow(MaximumFeeExceededError)
+        await expect(promise).rejects.toThrow('Exceeded maximum fee cost for transaction operation.')
 
         expect(sendUserOperationMock).not.toHaveBeenCalled()
       })
@@ -401,8 +406,23 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           new actualAk.AbstractionKitError('BUNDLER_ERROR', 'AA50: paymaster deposit too low')
         )
 
-        await expect(account.sendTransaction(TRANSACTION))
-          .rejects.toThrow('Not enough funds on the safe account to repay the paymaster.')
+        const promise = account.sendTransaction(TRANSACTION)
+
+        await expect(promise).rejects.toThrow(TransactionError)
+        await expect(promise).rejects.toThrow('Not enough funds on the safe account to repay the paymaster.')
+        await expect(promise).rejects.toMatchObject({ reason: TransactionErrorReason.INSUFFICIENT_BALANCE })
+      })
+
+      test('should reframe AA50 errors when broadcasting an already-signed user operation', async () => {
+        sendUserOperationMock.mockRejectedValue(
+          new actualAk.AbstractionKitError('BUNDLER_ERROR', 'AA50: paymaster deposit too low')
+        )
+
+        const promise = account.sendTransaction({ ...DUMMY_USER_OP, signature: DUMMY_OP_SIGNATURE })
+
+        await expect(promise).rejects.toThrow(TransactionError)
+        await expect(promise).rejects.toThrow('Not enough funds on the safe account to repay the paymaster.')
+        await expect(promise).rejects.toMatchObject({ reason: TransactionErrorReason.INSUFFICIENT_BALANCE })
       })
     })
 
@@ -471,14 +491,19 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
       })
 
       test('should reject a bigint nonceKey above the uint192 range', async () => {
-        await expect(account.sendTransaction(TX, { nonceKey: MAX_UINT192 + 1n }))
-          .rejects.toThrow('nonceKey must be within the uint192 range (0 to 2^192 - 1).')
+        const promise = account.sendTransaction(TX, { nonceKey: MAX_UINT192 + 1n })
+
+        await expect(promise).rejects.toThrow(ValueError)
+        await expect(promise).rejects.toThrow('nonceKey must be within the uint192 range (0 to 2^192 - 1).')
+
         expect(fetchAccountNonceMock).not.toHaveBeenCalled()
       })
 
       test('should reject a negative bigint nonceKey', async () => {
-        await expect(account.sendTransaction(TX, { nonceKey: -1n }))
-          .rejects.toThrow('nonceKey must be within the uint192 range (0 to 2^192 - 1).')
+        const promise = account.sendTransaction(TX, { nonceKey: -1n })
+
+        await expect(promise).rejects.toThrow(ValueError)
+        await expect(promise).rejects.toThrow('nonceKey must be within the uint192 range (0 to 2^192 - 1).')
       })
     })
 
@@ -511,8 +536,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           transactionMaxFee: 0n
         })
 
-        await expect(pmAccount.signTransaction(TRANSACTION))
-          .rejects.toThrow('Exceeded maximum fee cost for transaction operation.')
+        const promise = pmAccount.signTransaction(TRANSACTION)
+
+        await expect(promise).rejects.toThrow(MaximumFeeExceededError)
+        await expect(promise).rejects.toThrow('Exceeded maximum fee cost for transaction operation.')
       })
 
       test('should re-validate the merged config when a per-call override is provided', async () => {
@@ -558,8 +585,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           transferMaxFee: 0n
         })
 
-        await expect(pmAccount.transfer(TRANSFER))
-          .rejects.toThrow('Exceeded maximum fee cost for transfer operation.')
+        const promise = pmAccount.transfer(TRANSFER)
+
+        await expect(promise).rejects.toThrow(MaximumFeeExceededError)
+        await expect(promise).rejects.toThrow('Exceeded maximum fee cost for transfer operation.')
 
         expect(sendUserOperationMock).not.toHaveBeenCalled()
       })
@@ -575,8 +604,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           transferMaxFee: 600_000n
         })
 
-        await expect(pmAccount.transfer(TRANSFER))
-          .rejects.toThrow('Exceeded maximum fee cost for transfer operation.')
+        const promise = pmAccount.transfer(TRANSFER)
+
+        await expect(promise).rejects.toThrow(MaximumFeeExceededError)
+        await expect(promise).rejects.toThrow('Exceeded maximum fee cost for transfer operation.')
 
         expect(sendUserOperationMock).not.toHaveBeenCalled()
       })
@@ -594,8 +625,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
       test('should throw if approving non-zero USDT on mainnet when allowance is non-zero', async () => {
         getAllowanceMock.mockResolvedValue(1n)
 
-        await expect(account.approve({ token: USDT_MAINNET_ADDRESS, spender: SPENDER, amount: AMOUNT }))
-          .rejects.toThrow('USDT requires the current allowance to be reset to 0 before setting a new non-zero value.')
+        const promise = account.approve({ token: USDT_MAINNET_ADDRESS, spender: SPENDER, amount: AMOUNT })
+
+        await expect(promise).rejects.toThrow(ValueError)
+        await expect(promise).rejects.toThrow('USDT requires the current allowance to be reset to 0 before setting a new non-zero value.')
 
         expect(getAllowanceMock).toHaveBeenCalledWith(USDT_MAINNET_ADDRESS, SPENDER)
       })
@@ -690,8 +723,10 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           provider: undefined
         })
 
-        await expect(offlineAccount.approve({ token: USDT_MAINNET_ADDRESS, spender: SPENDER, amount: AMOUNT }))
-          .rejects.toThrow('The wallet must be connected to a provider to approve funds.')
+        const promise = offlineAccount.approve({ token: USDT_MAINNET_ADDRESS, spender: SPENDER, amount: AMOUNT })
+
+        await expect(promise).rejects.toThrow(ProviderRequiredError)
+        await expect(promise).rejects.toThrow('The wallet must be connected to a provider to approve funds.')
       })
     })
 

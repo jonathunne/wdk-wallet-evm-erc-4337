@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 import { Contract } from 'ethers'
-import { NoSuchElementError, ValueError } from '@tetherto/wdk-wallet'
+import { NoSuchElementError, TransactionError, TransactionErrorReason, ValueError, WdkError } from '@tetherto/wdk-wallet'
 
 const actualWalletEvm = await import('@tetherto/wdk-wallet-evm')
 const actualAk = await import('abstractionkit')
@@ -186,7 +186,16 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           .toThrow(new ConfigurationError('Unsupported safe modules version: 0.2.0'))
       })
 
+      test('should throw a configuration error that is part of the wdk error taxonomy', () => {
+        expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, safeModulesVersion: '0.2.0' }))
+          .toThrow(ValueError)
+        expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, safeModulesVersion: '0.2.0' }))
+          .toThrow(WdkError)
+      })
+
       test('should throw if the provider is an empty list', () => {
+        expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, provider: [] }))
+          .toThrow(ValueError)
         expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, provider: [] }))
           .toThrow("The 'provider' option cannot be set to an empty list.")
       })
@@ -413,8 +422,11 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
 
         const pmAccount = new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, PAYMASTER_TOKEN_CONFIG)
 
-        await expect(pmAccount.quoteSendTransaction(TRANSACTION))
-          .rejects.toThrow('Token paymaster requires the account to hold the paymaster token for fee estimation.')
+        const promise = pmAccount.quoteSendTransaction(TRANSACTION)
+
+        await expect(promise).rejects.toThrow(TransactionError)
+        await expect(promise).rejects.toThrow('Token paymaster requires the account to hold the paymaster token for fee estimation.')
+        await expect(promise).rejects.toMatchObject({ reason: TransactionErrorReason.INSUFFICIENT_BALANCE })
       })
 
       test('should propagate non-AbstractionKitError errors from the paymaster', async () => {
