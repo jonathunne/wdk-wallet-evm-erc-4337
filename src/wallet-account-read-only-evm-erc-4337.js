@@ -730,8 +730,8 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    * @returns {Promise<BuiltUserOperation>} The built operation, signing context, and (in token mode) the paymaster quote.
    */
   async _buildUserOperation (calls, config, txOverrides = {}) {
-    const smartAccount = await this._getSmartAccount(config)
     const chainId = await this._getChainId()
+    const smartAccount = await this._getSmartAccount(config)
 
     const mode = WalletAccountReadOnlyEvmErc4337._resolvePaymasterMode(config)
     const provider = mode !== PaymasterMode.NATIVE

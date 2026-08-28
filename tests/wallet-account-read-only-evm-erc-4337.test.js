@@ -201,6 +201,7 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
 
         await expect(mismatched.quoteSendTransaction(TRANSACTION))
           .rejects.toThrow(new ConfigurationError('Provider is on chain 1 but the wallet is configured for chain 137'))
+        expect(isDeployedMock).not.toHaveBeenCalled()
         expect(createUserOperationMock).not.toHaveBeenCalled()
       })
 
