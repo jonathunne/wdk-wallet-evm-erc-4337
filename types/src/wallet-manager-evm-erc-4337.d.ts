@@ -4,6 +4,7 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
      *
      * @param {string | Uint8Array} seed - The wallet's [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) seed phrase.
      * @param {EvmErc4337WalletConfig} config - The configuration object.
+     * @throws {ValueError} If the `provider` option is set to an empty list.
      */
     constructor(seed: string | Uint8Array, config: EvmErc4337WalletConfig);
     /**
@@ -37,6 +38,7 @@ export default class WalletManagerEvmErc4337 extends WalletManager {
      * Returns the current fee rates.
      *
      * @returns {Promise<FeeRates>} The fee rates (in weis).
+     * @throws {ProviderRequiredError} If the wallet is not connected to a provider.
      */
     getFeeRates(): Promise<FeeRates>;
 }

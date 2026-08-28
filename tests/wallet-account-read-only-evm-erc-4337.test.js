@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 import { Contract } from 'ethers'
+import { NoSuchElementError, TransactionError, TransactionErrorReason, ValueError, WdkError } from '@tetherto/wdk-wallet'
 
 const actualWalletEvm = await import('@tetherto/wdk-wallet-evm')
 const actualAk = await import('abstractionkit')
@@ -9,6 +10,7 @@ const getTokenBalanceMock = jest.fn()
 const getTokenBalancesMock = jest.fn()
 const getAllowanceMock = jest.fn()
 const evmGetTransactionReceiptMock = jest.fn()
+const evmGetTransactionMock = jest.fn()
 const verifyMock = jest.fn()
 const verifyTypedDataMock = jest.fn()
 
@@ -18,6 +20,7 @@ const WalletAccountReadOnlyEvmMock = jest.fn().mockImplementation(() => ({
   getTokenBalances: getTokenBalancesMock,
   getAllowance: getAllowanceMock,
   getTransactionReceipt: evmGetTransactionReceiptMock,
+  getTransaction: evmGetTransactionMock,
   verify: verifyMock,
   verifyTypedData: verifyTypedDataMock
 }))
@@ -90,6 +93,7 @@ const DUMMY_TX_HASH = '0xdef456abc123def456abc123def456abc123def456abc123def456a
 const DUMMY_USER_OP_RECEIPT = {
   userOpHash: DUMMY_USER_OP_HASH,
   success: true,
+  actualGasCost: 42_000_000_000_000n,
   receipt: {
     transactionHash: DUMMY_TX_HASH
   }
@@ -100,6 +104,16 @@ const DUMMY_TX_RECEIPT = {
   blockNumber: 12345,
   status: 1,
   gasUsed: 21000n
+}
+
+const DUMMY_EVM_TX_INFO = {
+  hash: DUMMY_TX_HASH,
+  finality: 'confirmed',
+  success: true,
+  block: '0x' + '22'.repeat(32),
+  fee: 21_000n * 2_000_000_000n,
+  confirmations: 3,
+  receipt: DUMMY_TX_RECEIPT
 }
 
 const DUMMY_USER_OP = {
@@ -172,7 +186,16 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
           .toThrow(new ConfigurationError('Unsupported safe modules version: 0.2.0'))
       })
 
+      test('should throw a configuration error that is part of the wdk error taxonomy', () => {
+        expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, safeModulesVersion: '0.2.0' }))
+          .toThrow(ValueError)
+        expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, safeModulesVersion: '0.2.0' }))
+          .toThrow(WdkError)
+      })
+
       test('should throw if the provider is an empty list', () => {
+        expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, provider: [] }))
+          .toThrow(ValueError)
         expect(() => new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, { ...SPONSORED_CONFIG, provider: [] }))
           .toThrow("The 'provider' option cannot be set to an empty list.")
       })
@@ -399,8 +422,11 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
 
         const pmAccount = new WalletAccountReadOnlyEvmErc4337(OWNER_ADDRESS, PAYMASTER_TOKEN_CONFIG)
 
-        await expect(pmAccount.quoteSendTransaction(TRANSACTION))
-          .rejects.toThrow('Token paymaster requires the account to hold the paymaster token for fee estimation.')
+        const promise = pmAccount.quoteSendTransaction(TRANSACTION)
+
+        await expect(promise).rejects.toThrow(TransactionError)
+        await expect(promise).rejects.toThrow('Token paymaster requires the account to hold the paymaster token for fee estimation.')
+        await expect(promise).rejects.toMatchObject({ reason: TransactionErrorReason.INSUFFICIENT_BALANCE })
       })
 
       test('should propagate non-AbstractionKitError errors from the paymaster', async () => {
@@ -498,6 +524,80 @@ describe('@tetherto/wdk-wallet-evm-erc-4337', () => {
         const receipt = await account.getTransactionReceipt(DUMMY_USER_OP_HASH)
 
         expect(receipt).toBe(null)
+      })
+    })
+
+    describe('getTransaction', () => {
+      test('throws ValueError when the hash is not a valid user operation hash', async () => {
+        await expect(account.getTransaction('0xnotahash')).rejects.toThrow(ValueError)
+        expect(getUserOperationByHashMock).not.toHaveBeenCalled()
+      })
+
+      test('derives finality from the bundling tx and success/fee from the user operation', async () => {
+        getUserOperationByHashMock.mockResolvedValue({ transactionHash: DUMMY_TX_HASH })
+        getUserOperationReceiptMock.mockResolvedValue(DUMMY_USER_OP_RECEIPT)
+        evmGetTransactionMock.mockResolvedValue({ ...DUMMY_EVM_TX_INFO })
+
+        const info = await account.getTransaction(DUMMY_USER_OP_HASH)
+
+        expect(info.hash).toBe(DUMMY_USER_OP_HASH)
+        expect(info.finality).toBe('confirmed')
+        expect(info.confirmations).toBe(3)
+        expect(info.success).toBe(true)
+        expect(info.fee).toBe(DUMMY_USER_OP_RECEIPT.actualGasCost)
+        expect(info.receipt).toEqual(DUMMY_TX_RECEIPT)
+        expect(info.userOperationReceipt).toEqual(DUMMY_USER_OP_RECEIPT)
+        expect(evmGetTransactionMock).toHaveBeenCalledWith(DUMMY_TX_HASH)
+      })
+
+      test('reports success false when the user operation reverted inside a successful bundling tx', async () => {
+        getUserOperationByHashMock.mockResolvedValue({ transactionHash: DUMMY_TX_HASH })
+        getUserOperationReceiptMock.mockResolvedValue({ ...DUMMY_USER_OP_RECEIPT, success: false })
+        evmGetTransactionMock.mockResolvedValue({ ...DUMMY_EVM_TX_INFO, success: true })
+
+        const info = await account.getTransaction(DUMMY_USER_OP_HASH)
+
+        expect(info.success).toBe(false)
+      })
+
+      test('falls back to the tx success and fee when the user operation receipt is missing', async () => {
+        getUserOperationByHashMock.mockResolvedValue({ transactionHash: DUMMY_TX_HASH })
+        getUserOperationReceiptMock.mockResolvedValue(null)
+        evmGetTransactionMock.mockResolvedValue({ ...DUMMY_EVM_TX_INFO })
+
+        const info = await account.getTransaction(DUMMY_USER_OP_HASH)
+
+        expect(info.success).toBe(DUMMY_EVM_TX_INFO.success)
+        expect(info.fee).toBe(DUMMY_EVM_TX_INFO.fee)
+        expect(info.userOperationReceipt).toBe(null)
+      })
+
+      test('returns pending when the user operation is known but not yet mined', async () => {
+        getUserOperationByHashMock.mockResolvedValue({ transactionHash: null })
+
+        const info = await account.getTransaction(DUMMY_USER_OP_HASH)
+
+        expect(info.finality).toBe('pending')
+        expect(info.success).toBeUndefined()
+        expect(info.confirmations).toBe(0)
+        expect(info.receipt).toBeNull()
+        expect(info.userOperationReceipt).toBeNull()
+        expect(evmGetTransactionMock).not.toHaveBeenCalled()
+      })
+
+      test('throws NoSuchElementError when the bundler has never seen the user operation', async () => {
+        getUserOperationByHashMock.mockResolvedValue(null)
+
+        await expect(account.getTransaction(DUMMY_USER_OP_HASH)).rejects.toThrow(NoSuchElementError)
+        expect(evmGetTransactionMock).not.toHaveBeenCalled()
+      })
+
+      test('throws NoSuchElementError when the bundling tx can no longer be found', async () => {
+        getUserOperationByHashMock.mockResolvedValue({ transactionHash: DUMMY_TX_HASH })
+        getUserOperationReceiptMock.mockResolvedValue(DUMMY_USER_OP_RECEIPT)
+        evmGetTransactionMock.mockRejectedValue(new NoSuchElementError(`No transaction found for '${DUMMY_TX_HASH}'.`))
+
+        await expect(account.getTransaction(DUMMY_USER_OP_HASH)).rejects.toThrow(NoSuchElementError)
       })
     })
 

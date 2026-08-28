@@ -16,6 +16,12 @@
 
 /** @typedef {import('./src/wallet-account-read-only-evm-erc-4337.js').UserOperationReceipt} UserOperationReceipt */
 /** @typedef {import('./src/wallet-account-read-only-evm-erc-4337.js').BuiltUserOperation} BuiltUserOperation */
+/** @typedef {import('./src/wallet-account-read-only-evm-erc-4337.js').EvmErc4337TransactionDetails} EvmErc4337TransactionDetails */
+
+/** @typedef {import('@tetherto/wdk-wallet').Finality} Finality */
+/** @typedef {import('@tetherto/wdk-wallet').TransactionReceipt} TransactionReceipt */
+/** @typedef {import('@tetherto/wdk-wallet').WaitForTransactionTarget} WaitForTransactionTarget */
+/** @typedef {import('@tetherto/wdk-wallet').WaitForTransactionOptions} WaitForTransactionOptions */
 
 /** @typedef {import('@tetherto/wdk-wallet-evm').FeeRates} FeeRates */
 

@@ -4,6 +4,11 @@ export { default as WalletAccountEvmErc4337 } from "./src/wallet-account-evm-erc
 export { ConfigurationError } from "./src/errors.js";
 export type UserOperationReceipt = import("./src/wallet-account-read-only-evm-erc-4337.js").UserOperationReceipt;
 export type BuiltUserOperation = import("./src/wallet-account-read-only-evm-erc-4337.js").BuiltUserOperation;
+export type EvmErc4337TransactionDetails = import("./src/wallet-account-read-only-evm-erc-4337.js").EvmErc4337TransactionDetails;
+export type Finality = import("@tetherto/wdk-wallet").Finality;
+export type TransactionReceipt = import("@tetherto/wdk-wallet").TransactionReceipt;
+export type WaitForTransactionTarget = import("@tetherto/wdk-wallet").WaitForTransactionTarget;
+export type WaitForTransactionOptions = import("@tetherto/wdk-wallet").WaitForTransactionOptions;
 export type FeeRates = import("@tetherto/wdk-wallet-evm").FeeRates;
 export type KeyPair = import("@tetherto/wdk-wallet-evm").KeyPair;
 export type EvmErc4337Transaction = import("./src/wallet-account-read-only-evm-erc-4337.js").EvmErc4337Transaction;

@@ -100,7 +100,8 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * @param {Partial<EvmErc4337WalletPaymasterTokenConfig | EvmErc4337WalletSponsorshipPolicyConfig | EvmErc4337WalletNativeCoinsConfig>} [config] - If set, overrides the given configuration options.
      * @returns {Promise<Omit<TransactionResult, 'hash'>>} The transaction's quotes.
      * @throws {ConfigurationError} If the override `config` is invalid or has missing required fields.
-     * @throws {Error} If the token paymaster reports AA50 (account does not hold the paymaster token).
+     * @throws {ConfigurationError} If, in token mode, the configured `paymasterAddress` does not match the paymaster address returned by the paymaster RPC. This guards against the auto-generated ERC-20 approval targeting an unexpected paymaster contract.
+     * @throws {TransactionError} If the token paymaster reports AA50 (account does not hold the paymaster token).
      */
     quoteSendTransaction(tx: EvmErc4337Transaction | EvmErc4337Transaction[], config?: Partial<EvmErc4337WalletPaymasterTokenConfig | EvmErc4337WalletSponsorshipPolicyConfig | EvmErc4337WalletNativeCoinsConfig>): Promise<Omit<TransactionResult, "hash">>;
     /**
@@ -114,16 +115,42 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * @param {EvmErc4337GasOverrides} [txOverrides] - If set, applies these UserOperationV7 gas/fee overrides to the underlying transaction.
      * @returns {Promise<Omit<TransferResult, 'hash'>>} The transfer's quotes.
      * @throws {ConfigurationError} If the override `config` is invalid or has missing required fields.
-     * @throws {Error} If the token paymaster reports AA50 (account does not hold the paymaster token).
+     * @throws {ConfigurationError} If, in token mode, the configured `paymasterAddress` does not match the paymaster address returned by the paymaster RPC. This guards against the auto-generated ERC-20 approval targeting an unexpected paymaster contract.
+     * @throws {TransactionError} If the token paymaster reports AA50 (account does not hold the paymaster token).
      */
     quoteTransfer(options: TransferOptions, config?: Partial<EvmErc4337WalletPaymasterTokenConfig | EvmErc4337WalletSponsorshipPolicyConfig | EvmErc4337WalletNativeCoinsConfig>, txOverrides?: EvmErc4337GasOverrides): Promise<Omit<TransferResult, "hash">>;
     /**
      * Returns a transaction's receipt.
      *
+     * @deprecated Use {@link getTransaction} instead, which returns a normalized, finality-based receipt. The raw ethers receipt and the user operation receipt remain available on its `receipt` and `userOperationReceipt` properties.
      * @param {string} hash - The user operation hash.
      * @returns {Promise<EvmTransactionReceipt | null>} – The receipt, or null if the transaction has not been included in a block yet.
      */
     getTransactionReceipt(hash: string): Promise<EvmTransactionReceipt | null>;
+    /**
+     * Returns a normalized, finality-based receipt for a user operation. Finality and confirmations come from the bundling transaction; `success` and `fee` come from the user operation.
+     *
+     * @param {string} hash - The user operation hash.
+     * @returns {Promise<TransactionReceipt & EvmErc4337TransactionDetails>} The normalized receipt.
+     * @throws {ValueError} If the hash is not a valid user operation hash.
+     * @throws {NoSuchElementError} If no user operation has been found for the given hash.
+     */
+    getTransaction(hash: string): Promise<TransactionReceipt & EvmErc4337TransactionDetails>;
+    /**
+     * Blocks until a user operation reaches a terminal state (the requested finality target or `dropped`), or times out.
+     *
+     * @param {string} hash - The user operation hash.
+     * @param {WaitForTransactionOptions} [options] - The wait options.
+     * @returns {Promise<TransactionReceipt & EvmErc4337TransactionDetails>} The terminal receipt: the finality target reached (inspect `success` to tell success from revert), or `dropped`.
+     * @throws {TimeoutError} If the target is not reached before the timeout.
+     */
+    waitForTransaction(hash: string, options?: WaitForTransactionOptions): Promise<TransactionReceipt & EvmErc4337TransactionDetails>;
+    /**
+     * Overrides the base default to allow for slower ERC-4337 bundling, inclusion, and confirmation.
+     *
+     * @type {number}
+     */
+    get defaultWaitTimeout(): number;
     /**
      * Returns a user operation's receipt.
      *
@@ -200,7 +227,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * @protected
      * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} [config] - The configuration object.
      * @returns {Eip1193Provider} A wrapped Eip1193Provider instance.
-     * @throws {Error} If the `provider` option is set to an empty array.
+     * @throws {ValueError} If the `provider` option is set to an empty array.
      */
     protected _createFailoverProvider (config?: Omit<EvmErc4337WalletConfig, "transferMaxFee" | "transactionMaxFee">): Eip1193Provider
     /** @private */
@@ -239,7 +266,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * @param {EvmErc4337Transaction[]} txs - The EVM transactions to include in the UserOperation.
      * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The wallet configuration to use for the build.
      * @returns {Promise<BuiltUserOperation & Omit<TransactionResult, 'hash'>>} The built operation plus its raw fee (no tolerance buffer applied).
-     * @throws {Error} If the token paymaster reports AA50 (account does not hold the paymaster token).
+     * @throws {TransactionError} If the token paymaster reports AA50 (account does not hold the paymaster token).
      */
     protected _getUserOperationGasCost(txs: EvmErc4337Transaction[], config: Omit<EvmErc4337WalletConfig, "transferMaxFee" | "transactionMaxFee">): Promise<BuiltUserOperation & Omit<TransactionResult, "hash">>;
 }
@@ -250,6 +277,25 @@ export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
 export type EvmTransactionReceipt = import("@tetherto/wdk-wallet-evm").EvmTransactionReceipt;
 export type TypedData = import("@tetherto/wdk-wallet-evm").TypedData;
 export type UserOperationReceipt = import('abstractionkit').UserOperationReceiptResult;
+export type TransactionReceipt = import("@tetherto/wdk-wallet").TransactionReceipt;
+export type WaitForTransactionOptions = import("@tetherto/wdk-wallet").WaitForTransactionOptions;
+/**
+ * The ERC-4337-specific fields added to a normalized transaction receipt.
+ */
+export type EvmErc4337TransactionDetails = {
+    /**
+     * - The number of confirmations (0 while pending or dropped).
+     */
+    confirmations: number;
+    /**
+     * - The native ethers receipt, or null while the user operation is pending or dropped.
+     */
+    receipt: EvmTransactionReceipt | null;
+    /**
+     * - The user operation receipt, or null while pending or unavailable.
+     */
+    userOperationReceipt: UserOperationReceipt | null;
+};
 export type EvmErc4337Transaction = {
     /**
      * - The call's recipient.
